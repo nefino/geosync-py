@@ -23,7 +23,11 @@ def start_analyses(client: HTTPEndpoint) -> AnalysesMutationResult:
 
     # Start the analyses
     analysis_inputs = compose_complete_requests(general_availability, local_availability)
-    # TODO: bail out if there are no analyses to start
+    if len(analysis_inputs) == 0:
+        # We can only check for layer having been unpacked already.
+        # So if we're here, we've already unpacked all latest layers.
+        print("✅ No layers to update. Done.")
+        exit(0)
     analyses_op = start_analyses_operation(analysis_inputs)
     analyses_data = client(analyses_op)
     if 'errors' in analyses_data:
