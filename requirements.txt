@@ -1,2 +1,5 @@
 graphql-core==3.2.4
+prompt-toolkit==3.0.36
+questionary==2.0.1
 sgqlc==16.4
+wcwidth==0.2.13

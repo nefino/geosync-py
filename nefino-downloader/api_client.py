@@ -2,16 +2,15 @@
 If you want to use the Nefino API for something other than fetching the latest geodata,
 you can use this client to interact with the API directly."""
 
-from itertools import chain
 from typing import Any, Dict, List 
 from .schema import GeoAnalysisInput, PlaceTypeGeo, schema
-from .key_management import get_api_key
 from sgqlc.endpoint.http import HTTPEndpoint
 from sgqlc.operation import Operation
+from .config import Config
 
 def get_client(api_host: str="https://api.nefino.li") -> HTTPEndpoint:
     """Returns an HTTP client for the Nefino API."""
-    headers = {'Authorization': f'Bearer {get_api_key()}',
+    headers = {'Authorization': f'Bearer {Config.singleton().api_key}',
                'Cookie': 'JWT='}
     return HTTPEndpoint(f'{api_host}/external', headers)
 

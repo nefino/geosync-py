@@ -1,7 +1,8 @@
 from typing import Dict, List, Set 
-from .schema import CRSType, CoordinateInput, GeoAnalysisInput, GeoAnalysisLayerInput, GeoAnalysisObjectInput, GeoAnalysisOutputFormatInput, GeoAnalysisRequestInput, GeoAnalysisScopeInput, OutputObjectType, PlaceTypeGeo, ScopeType
+from .schema import CoordinateInput, GeoAnalysisInput, GeoAnalysisLayerInput, GeoAnalysisObjectInput, GeoAnalysisOutputFormatInput, GeoAnalysisRequestInput, GeoAnalysisScopeInput, ScopeType
 from .api_client import GeneralAvailabilityResult, LocalAvailabilityResult, build_states_list
 from .journal import Journal
+from .config import Config
 
 # Place analyses require a dummy coordinate. It will be ignored in calculations.
 DUMMY_COORDINATE = CoordinateInput(lon=9.0, lat=52.0)
@@ -33,9 +34,13 @@ def compose_single_request(state: str,
                            local_availability: LocalAvailabilityResult
                            ) -> GeoAnalysisInput:
     """Build a single request for a given state."""
+    config = Config.singleton()
     # specify the data we want to add to the analysis
     state_local_layers = {layer.name for layer in 
                           local_availability[f'regionalLayers_{state}']}
+
+    for skip_layer in config.skip_layers:
+        state_local_layers.discard(skip_layer)
 
     requests =[GeoAnalysisRequestInput(cluster_name=cluster.name, layers=layers)
                for (cluster, layers) in 
@@ -49,8 +54,8 @@ def compose_single_request(state: str,
     # Specify the output format
     # TODO: this should be configurable
     output = GeoAnalysisOutputFormatInput(template_name='default', 
-                                          type=OutputObjectType('GPKG'),
-                                          crs=CRSType('EPSG_4326'))
+                                          type=config.output_format,
+                                          crs=config.crs)
     # specify where the analysis should be done
     scope = GeoAnalysisScopeInput(place=state, type=ScopeType('FEDERAL_STATE'))
     # put everything together into a specification for an analysis

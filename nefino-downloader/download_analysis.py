@@ -1,10 +1,11 @@
 import os
-from shutil import copy, move, rmtree
+from shutil import move, rmtree
 from urllib.request import urlretrieve
 import zipfile
 from .get_downloadable_analyses import AnalysisResult
 from .journal import Journal
-from .storage import get_download_directory, get_output_path 
+from .config import Config
+from .storage import get_download_directory 
 from datetime import datetime
 
 def download_analysis(analysis: AnalysisResult) -> None:
@@ -31,6 +32,7 @@ def get_zip_root(download_dir: str) -> str:
 def unpack_items(zip_root: str, pk: str, started_at: datetime) -> None:
     """Unpacks the layers from the zip file."""
     journal = Journal.singleton()
+    config = Config.singleton()
     if pk not in journal.analysis_states:
         print(f"Analysis {pk} not found in journal; skipping download")
         return
@@ -42,7 +44,7 @@ def unpack_items(zip_root: str, pk: str, started_at: datetime) -> None:
         layers = set()
         for file in os.listdir(cluster_dir):
             if journal.is_newer_than_saved(file, state, started_at):
-                output_dir = get_output_path(state, cluster)
+                output_dir = config.output_path
                 file_path = os.path.join(cluster_dir, file)
                 if (os.path.exists(os.path.join(output_dir, file))):
                     os.remove(os.path.join(output_dir, file))
