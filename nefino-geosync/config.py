@@ -27,6 +27,7 @@ class Config:
     def __init__(self):
         if Config._instance:
             raise Exception("Config is a singleton class. Use Config.singleton() to get the instance.")
+        self.already_prompted = False
         if not os.path.exists(self._config_file_path):
             self.run_config_prompts(missing_config=True)
         else:
@@ -78,3 +79,4 @@ class Config:
             default="" if missing_config else ",".join(self.skip_layers)).ask()
         self.skip_layers = [] if skip_layer_string == "" else skip_layer_string.split(",")
         self.save()
+        self.already_prompted = True
