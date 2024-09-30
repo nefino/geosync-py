@@ -93,6 +93,7 @@ class Journal:
     
     def record_layers_unpacked(self, layers: Set[str], state: str, started_at: datetime):
         """Records the layers that have been unpacked, and when they were last updated."""
+        print(f"Recording layers {layers} as unpacked for state {state}")
         for layer in layers:
             if layer not in self.layer_last_updates:
                 self.layer_last_updates[layer] = dict()

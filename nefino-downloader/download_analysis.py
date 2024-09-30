@@ -1,4 +1,5 @@
 import os
+import re
 from shutil import move, rmtree
 from urllib.request import urlretrieve
 import zipfile
@@ -29,6 +30,8 @@ def get_zip_root(download_dir: str) -> str:
     return os.path.join(analyses, os.listdir(analyses)[0])
 
 
+FILE_NAME_PATTERN = re.compile(r"(?P<layer>^.*?)(?P<buffer>__[0-9]+m)?(?P<ext>\..{3,4}$)")
+
 def unpack_items(zip_root: str, pk: str, started_at: datetime) -> None:
     """Unpacks the layers from the zip file."""
     journal = Journal.singleton()
@@ -46,10 +49,21 @@ def unpack_items(zip_root: str, pk: str, started_at: datetime) -> None:
             if journal.is_newer_than_saved(file, state, started_at):
                 output_dir = config.output_path
                 file_path = os.path.join(cluster_dir, file)
-                if (os.path.exists(os.path.join(output_dir, file))):
-                    os.remove(os.path.join(output_dir, file))
+                match = re.match(FILE_NAME_PATTERN, file)
+                layer, ext = (match.group("layer"), match.group("ext"))
+                # remove any existing files for the same layer
+                # this is important to avoid confusion if the pre-buffer changes
+                for matching_file in (f for f in os.listdir(output_dir)
+                                      if f.startswith(layer)):
+                    output_match = re.match(FILE_NAME_PATTERN, matching_file)
+                    # only remove files that match the layer and extension
+                    # otherwise, only the last extension to be unpacked would survive
+                    # also, we are double-checking the layer name here in case we have
+                    # a layer name which starts with a different layer's name
+                    if output_match.group("layer") == layer and \
+                          output_match.group("ext") == ext:
+                        os.remove(os.path.join(output_dir, matching_file))
                 move(file_path, output_dir)
-                layer, ext = os.path.splitext(file)
                 layers.add(layer)
         journal.record_layers_unpacked(layers, state, started_at)
     rmtree(zip_root)
