@@ -3,7 +3,7 @@
 import os
 import platform
 
-APP_NAME='nefino-downloader'
+APP_NAME='nefino-geosync'
 
 def get_app_directory() -> str:
     """Returns the directory where the app should store its files. 

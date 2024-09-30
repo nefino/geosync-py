@@ -8,7 +8,7 @@
             "name": "Run script as module",
             "type": "debugpy",
             "request": "launch",
-            "module": "nefino-downloader.run",
+            "module": "nefino-geosync.run",
             "justMyCode": true
         }
     ]

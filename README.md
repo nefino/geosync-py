@@ -1,4 +1,4 @@
-# Nefino Downloader
+# Nefino Geosync
 
 This is a tool for downloading geodata from Nefino using an API key.
 
