@@ -10,9 +10,8 @@ def check_errors(data: dict) -> None:
         if args.verbose:
             pp("<b>GraphQL operation with errors:</b> " + json.dumps(data, indent=4))
 
-        message = data['errors'][0]['message']
-        if "AnonymousUser" in message or message == "Unauthorized":
-            pp('<b fg="red">ERROR:</b> Auth failed. Please run <b>nefino-geosync --configure</b> and double-check your API key.')
+        if is_token_invalid(data):
+            pp('<b fg="red">ERROR:</b> Invalid token. Please run <b>nefino-geosync --configure</b> and double-check your API key.')
         else:
             if not args.verbose:
                 pp("<b>Received GraphQL error from server:</b> " + json.dumps(data['errors'], indent=4))
@@ -25,3 +24,12 @@ Exiting due to the above error.""")
 
 def pp(to_print: str):
     print_formatted_text(HTML(to_print))
+
+def is_token_invalid(data: dict) -> bool:
+    """Check if the token is invalid."""
+    try:
+        if data['errors'][0]['extensions']['nefino_type'] == "AuthTokenInvalid":
+            return True
+    except KeyError:
+        return False
+    return False
