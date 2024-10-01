@@ -8,7 +8,10 @@ def download_completed_analyses(client: HTTPEndpoint) -> None:
     journal = Journal.singleton()
     for analysis in get_downloadable_analyses(client):
         if not analysis.pk in journal.synced_analyses:
-            download_analysis(analysis)
-            print(f"Downloaded analysis {analysis.pk}")
+            if analysis.pk in journal.analysis_states:
+                download_analysis(analysis)
+                print(f"Downloaded analysis {analysis.pk}")
+            else:
+                print(f"Analysis {analysis.pk} missing metadata; skipping download")
         else:
             print(f"Analysis {analysis.pk} already downloaded")

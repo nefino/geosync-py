@@ -14,8 +14,6 @@ def start_analyses(client: HTTPEndpoint) -> AnalysesMutationResult:
     general_op = general_availability_operation()
     general_data = client(general_op)
     check_errors(general_data)
-    if ('errors' in general_data):
-        raise Exception(f"Error in general availability operation: {general_data['errors']}")
     general_availability = (general_op + general_data)
 
     # Get information about the availability of layers in specific areas

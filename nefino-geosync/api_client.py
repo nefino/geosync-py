@@ -10,8 +10,7 @@ from .config import Config
 
 def get_client(api_host: str="https://api.nefino.li") -> HTTPEndpoint:
     """Returns an HTTP client for the Nefino API."""
-    headers = {'Authorization': f'Bearer {Config.singleton().api_key}',
-               'Cookie': 'JWT='}
+    headers = {'Authorization': Config.singleton().api_key}
     return HTTPEndpoint(f'{api_host}/external', headers)
 
 def general_availability_operation() -> Operation:
