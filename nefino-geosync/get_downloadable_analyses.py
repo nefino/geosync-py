@@ -2,6 +2,7 @@ from time import sleep
 from typing import Generator, Protocol
 from .api_client import get_analyses_operation
 from .schema import DateTime, Status
+from .graphql_errors import check_errors
 from sgqlc.endpoint.http import HTTPEndpoint
 
 # Let's give a quick description of what we want to be fetching.
@@ -21,6 +22,7 @@ def get_downloadable_analyses(client: HTTPEndpoint) -> Generator[AnalysisResult,
     reported_pks = set()
     while True:
         data = client(op)
+        check_errors(data)
         analyses = op + data
         found_outstanding_analysis = False
 
