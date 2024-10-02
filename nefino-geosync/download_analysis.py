@@ -48,6 +48,8 @@ def unpack_items(zip_root: str, pk: str, started_at: datetime) -> None:
         for file in os.listdir(cluster_dir):
             if journal.is_newer_than_saved(file, state, started_at):
                 output_dir = config.output_path
+                if not os.path.exists(output_dir):
+                    os.makedirs(output_dir)
                 file_path = os.path.join(cluster_dir, file)
                 match = re.match(FILE_NAME_PATTERN, file)
                 layer, ext = (match.group("layer"), match.group("ext"))

@@ -22,6 +22,7 @@ def get_downloadable_analyses(client: HTTPEndpoint) -> Generator[AnalysisResult,
     verbose = parse_args().verbose
     op = get_analyses_operation()
     reported_pks = set()
+    print("Checking for analyses to download...")
     while True:
         data = client(op)
         check_errors(data)
