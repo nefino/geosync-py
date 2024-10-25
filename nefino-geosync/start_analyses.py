@@ -5,7 +5,6 @@ from .journal import Journal
 from .graphql_errors import check_errors
 from .parse_args import parse_args
 from sgqlc.endpoint.http import HTTPEndpoint
-import json
 
 AnalysesMutationResult = Any
 

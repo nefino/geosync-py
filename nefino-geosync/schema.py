@@ -156,6 +156,14 @@ class MinimalCluster(sgqlc.types.Type):
     has_access = sgqlc.types.Field(Boolean, graphql_name='hasAccess')
 
 
+class MinimalGeoAccessRule(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ('all_clusters_enabled', 'clusters', 'places')
+    all_clusters_enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name='allClustersEnabled')
+    clusters = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name='clusters')
+    places = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name='places')
+
+
 class MinimalLayer(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ('name', 'pre_buffer', 'last_update', 'is_regional')
@@ -183,7 +191,7 @@ class PlaceIdentifier(sgqlc.types.Type):
 
 class Query(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ('analysis_metadata', 'allowed_analysis_areas', 'clusters', 'regional_layers')
+    __field_names__ = ('analysis_metadata', 'allowed_analysis_areas', 'clusters', 'regional_layers', 'access_rules')
     analysis_metadata = sgqlc.types.Field(sgqlc.types.list_of(MinimalAnalysis), graphql_name='analysisMetadata', args=sgqlc.types.ArgDict((
         ('analysis_id', sgqlc.types.Arg(UUID, graphql_name='analysisId', default=None)),
 ))
@@ -195,6 +203,7 @@ class Query(sgqlc.types.Type):
         ('place_id', sgqlc.types.Arg(sgqlc.types.non_null(String), graphql_name='placeId', default=None)),
 ))
     )
+    access_rules = sgqlc.types.Field(sgqlc.types.list_of(MinimalGeoAccessRule), graphql_name='accessRules')
 
 
 
