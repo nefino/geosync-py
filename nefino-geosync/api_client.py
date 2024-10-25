@@ -14,11 +14,17 @@ def get_client(api_host: str="https://api.nefino.li") -> HTTPEndpoint:
     return HTTPEndpoint(f'{api_host}/external', headers)
 
 def general_availability_operation() -> Operation:
-    """Returns the general availability of layers from Nefino API."""
+    """Returns the general availability of layers and access permissions from Nefino API."""
     operation = Operation(schema.Query)
     analysis_areas = operation.allowed_analysis_areas()
     analysis_areas.all_areas_enabled()
     analysis_areas.enabled_states().place_id()
+
+    access_rules = operation.access_rules()
+    access_rules.all_clusters_enabled()
+    access_rules.clusters()
+    access_rules.places()
+
     clusters = operation.clusters()
     clusters.name()
     clusters.has_access()

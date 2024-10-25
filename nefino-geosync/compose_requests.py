@@ -3,6 +3,7 @@ from .schema import CoordinateInput, GeoAnalysisInput, GeoAnalysisLayerInput, Ge
 from .api_client import GeneralAvailabilityResult, LocalAvailabilityResult, build_states_list
 from .journal import Journal
 from .config import Config
+from .access_rule_filter import AccessRuleFilter
 
 # Place analyses require a dummy coordinate. It will be ignored in calculations.
 DUMMY_COORDINATE = CoordinateInput(lon=9.0, lat=52.0)
@@ -35,6 +36,7 @@ def compose_single_request(state: str,
                            ) -> GeoAnalysisInput:
     """Build a single request for a given state."""
     config = Config.singleton()
+    rules = AccessRuleFilter(general_availability.access_rules)
     # specify the data we want to add to the analysis
     state_local_layers = {layer.name for layer in 
                           local_availability[f'regionalLayers_{state}']}
@@ -47,7 +49,8 @@ def compose_single_request(state: str,
                [(cluster, 
                  compose_layer_inputs(cluster.layers, state_local_layers, state)) 
                  for cluster in general_availability.clusters 
-                 if cluster.has_access]
+                 if cluster.has_access
+                 if rules.check(state, cluster.name)]
                   if len(layers) > 0]
     if len(requests) == 0:
         return None
