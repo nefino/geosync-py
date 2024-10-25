@@ -15,11 +15,10 @@ def compose_complete_requests(general_availability: GeneralAvailabilityResult,
                               ) -> Dict[str, GeoAnalysisInput]:
     """Use fetched data to build the complete requests for all available layers."""
     available_states = build_states_list(general_availability)
-    return {state: request for (state, request) in
-            ((state, compose_single_request(state, general_availability, 
-                                            local_availability)) 
-              for state in available_states)
-              if request is not None}
+    requests_as_tuples = [(state, compose_single_request(state, general_availability, local_availability)) 
+                          for state in available_states]
+    return {state: request for (state, request) in requests_as_tuples 
+            if request is not None}
 
 def compose_layer_inputs(layers: list, local_layers: Set[str], state: str) -> List[GeoAnalysisLayerInput]:
     """Build a list of layer inputs from output lists."""
@@ -44,14 +43,13 @@ def compose_single_request(state: str,
     for skip_layer in config.skip_layers:
         state_local_layers.discard(skip_layer)
 
+    requests_as_tuples = [(cluster, compose_layer_inputs(cluster.layers, state_local_layers, state)) 
+                          for cluster in general_availability.clusters 
+                          if cluster.has_access and rules.check(state, cluster.name)]
+
     requests =[GeoAnalysisRequestInput(cluster_name=cluster.name, layers=layers)
-               for (cluster, layers) in 
-               [(cluster, 
-                 compose_layer_inputs(cluster.layers, state_local_layers, state)) 
-                 for cluster in general_availability.clusters 
-                 if cluster.has_access
-                 if rules.check(state, cluster.name)]
-                  if len(layers) > 0]
+               for (cluster, layers) in requests_as_tuples if len(layers) > 0]
+
     if len(requests) == 0:
         return None
     # Specify the output format
