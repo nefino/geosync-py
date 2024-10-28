@@ -1,4 +1,5 @@
 """This is the main entry point of the application."""
+import os
 from .api_client import get_client
 from .start_analyses import start_analyses
 from .download_completed_analyses import download_completed_analyses
@@ -15,7 +16,7 @@ if args.configure:
     if not config.already_prompted:
         config.run_config_prompts()
 
-client = get_client(api_host="http://api.nefino.local")
+client = get_client(api_host=os.getenv("NEFINO_API_HOST", default="https://api.nefino.li"))
 
 if not args.resume:
     start_analyses(client)

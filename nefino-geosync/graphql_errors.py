@@ -15,7 +15,11 @@ def check_errors(data: dict) -> None:
             pp('<b fg="red">ERROR:</b> Invalid token. Please run <b>nefino-geosync --configure</b> and double-check your API key.')
         else:
             if not args.verbose:
-                pp("<b>Received GraphQL error from server:</b> " + html.escape(json.dumps(data['errors'], indent=4)))
+                try:
+                    pp("<b>Received GraphQL error from server:</b> " + html.escape(json.dumps(data['errors'], indent=4)))
+                except Exception as e:
+                    print(e)
+                    print(data["errors"])
                 pp("""<b fg="red">ERROR:</b> A GraphQL error occurred. Run with <b>--verbose</b> to see more information.
 Exiting due to the above error.""")
             if args.verbose:

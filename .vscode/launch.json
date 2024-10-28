@@ -9,6 +9,9 @@
             "type": "debugpy",
             "request": "launch",
             "module": "nefino-geosync.run",
+            "env": {
+                "NEFINO_API_HOST": "http://api.nefino.local"
+            },
             "justMyCode": true
         }
     ]
