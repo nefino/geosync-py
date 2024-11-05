@@ -25,9 +25,8 @@ def download_analysis(analysis: AnalysisResult) -> None:
 
 def get_zip_root(download_dir: str) -> str:
     """Returns the root directory of the extracted zip file."""
-    # subject to change as we eliminate the multi-scope analysis idea
-    analyses = (os.path.join(download_dir, 'analyses'))
-    return os.path.join(analyses, os.listdir(analyses)[0])
+    # earlier we had a heavily nested structure
+    return download_dir
 
 
 FILE_NAME_PATTERN = re.compile(r"(?P<layer>^.*?)(?P<buffer>__[0-9]+m)?(?P<ext>\..{3,4}$)")
