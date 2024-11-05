@@ -20,5 +20,5 @@ client = get_client(api_host=os.getenv("NEFINO_API_HOST", default="https://api.n
 
 if not args.resume:
     start_analyses(client)
-
-download_completed_analyses(client)
+else:
+    download_completed_analyses(client)

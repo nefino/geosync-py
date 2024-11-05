@@ -5,6 +5,7 @@ from .journal import Journal
 from .graphql_errors import check_errors
 from .parse_args import parse_args
 from sgqlc.endpoint.http import HTTPEndpoint
+from .download_completed_analyses import download_completed_analyses
 
 AnalysesMutationResult = Any
 
@@ -32,14 +33,16 @@ def start_analyses(client: HTTPEndpoint) -> AnalysesMutationResult:
         # So if we're here, we've already unpacked all latest layers.
         print("✅ No layers to update. Done.")
         exit(0)
-    print("Starting analyses...")
-    analyses_op = start_analyses_operation(analysis_inputs)
-    analyses_data = client(analyses_op)
-    check_errors(analyses_data)
-    analyses = (analyses_op + analyses_data)
+    for federal_state_key in analysis_inputs:
+        print(f"Starting analysis for {federal_state_key}")
+        analyses_op = start_analyses_operation({federal_state_key: analysis_inputs[federal_state_key]})
+        analyses_data = client(analyses_op)
+        check_errors(analyses_data)
+        analyses = (analyses_op + analyses_data)
 
-    # Add the analyses to the journal
-    journal.record_analyses_requested(analyses)
-    print("Analyses started.")
+        # Add the analyses to the journal
+        journal.record_analyses_requested(analyses)
+        print("Analysis started.")
+        download_completed_analyses(client)
     
     return(analyses)
