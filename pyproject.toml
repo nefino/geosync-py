@@ -1,0 +1,51 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nefino-geosync"
+version = "0.1.0"
+license = {file = "LICENSE"}
+readme = "README.md"
+description = "Python package to access geographical data from Nefino.LI Geo"
+
+authors = [
+    {name = "David Morris", email = "david.morris@nefino.de"},
+]
+
+maintainers = [
+    {name = "Chris Stetter", email = "chris.stetter@nefino.de"},
+]
+
+requires-python = ">=3.8"
+dependencies = [
+    "graphql-core==3.2.4",
+    "prompt-toolkit==3.0.36",
+    "questionary==2.0.1",
+    "sgqlc==16.4",
+    "wcwidth==0.2.13",
+]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: GIS",
+    "Topic :: Software Development :: Libraries",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Application = "https://nefino.li"
+API = "https://api.nefino.li"
+Documentation = "https://docs.nefino.li"
+
+[project.scripts]
+nefino-geosync = "nefino_geosync.run:main"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.targets.wheel]
+packages = ["nefino_geosync"]

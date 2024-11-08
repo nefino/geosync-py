@@ -1,0 +1,22 @@
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+  categories:
+    - title: Breaking Changes 🛠
+      labels:
+        - breaking-change
+    - title: New Features 🎉
+      labels:
+        - feature
+    - title: Fixes 🐛
+      labels:
+        - fix
+    - title: Documentation 📚
+      labels:
+        - docs
+    - title: Maintenance 🔧
+      labels:
+        - chore
+        - maintenance
+        - dependencies

@@ -1,0 +1,31 @@
+name: PR Label Check ✨
+
+on:
+  pull_request:
+    types: [opened, labeled, unlabeled, synchronize]
+
+jobs:
+  check-labels:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - name: Check for labels 📚
+        id: check-labels
+        run: |
+          labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
+          if [ -z "$labels" ]; then
+            echo "No labels found on PR"
+            echo "has_labels=false" >> $GITHUB_OUTPUT
+          else
+            echo "Found labels: $labels"
+            echo "has_labels=true" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+          
+      - name: Fail if no labels 💥
+        if: steps.check-labels.outputs.has_labels == 'false'
+        run: |
+          echo "::error::This PR requires at least one label. Please add one of: feature, fix, breaking-change, documentation, etc."
+          exit 1
