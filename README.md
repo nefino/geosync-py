@@ -41,5 +41,5 @@ pip install nefino-geosync
 
 ## Help
 
-- Open an [issue](https://github.com/your-org/geosync-py/issues) for bug reports or feature requests
+- Open an [issue](https://github.com/nefino/geosync-py/issues) for bug reports or feature requests
 - Contact [Nefino](https://www.nefino.de/kontakt) for account-related inquiries
