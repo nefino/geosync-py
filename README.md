@@ -1,20 +1,45 @@
-# Nefino Geosync
 
-This is a tool for downloading geodata from Nefino using an API key.
-A Nefino API contract is required.
 
-We support Windows, MacOS, and Linux.
+# <img src="https://nefino.li/favicon.ico" alt="Nefino Logo" width="25" height="25"/> Nefino Geosync
+[![PyPI version](https://img.shields.io/pypi/v/nefino-geosync.svg)](https://pypi.org/project/nefino-geosync/)
+[![Python versions](https://img.shields.io/pypi/pyversions/nefino-geosync.svg)](https://pypi.org/project/nefino-geosync/)
+[![License](https://img.shields.io/pypi/l/nefino-geosync.svg)](https://github.com/your-org/geosync-py/blob/main/LICENSE)
 
-Note: to conserve resources, you should only run geosync on one computer.
+Python package to download geographical data from Nefino.LI Geo. It uses the Nefino.LI GraphQL API that is accessible through [api.nefino.li/external](https://api.nefino.li/external).
 
-## Quickstart
+## Installation
 
-1. Get an API key from https://nefino.li/account/api-keys
-2. install nefino-geosync
-3. on the server you want to save the geodata to, run nefino-geosync in a command line and answer the questions (they are then saved)
-4. set up a scheduled task to run nefino-geosync regularly
+```bash
+pip install nefino-geosync
+```
 
-## Contact
+## Quick Start
 
-Feel free to file an issue, start a discussion or ask Nefino support if you have any questions.
-Our software development team speaks German and English.
+1. Get your API key from [nefino.li/account/api-keys](https://nefino.li/account/api-keys)
+2. Run to configure settings (they are then saved) and sync data:
+   ```bash
+   nefino-geosync
+   ```
+3. Resume interrupted downloads:
+   ```bash
+   nefino-geosync --resume
+   ```
+4. Set up a scheduled task to run nefino-geosync regularly
+
+## Requirements
+
+- Active Nefino.LI API contract
+- Sufficient disk space for geodata storage
+
+> **Note**: To conserve resources and prevent conflicts, run `nefino-geosync` on only one computer.
+
+## Links
+
+- [Nefino](https://nefino.de)
+- [Nefino.LI](https://nefino.li)
+- [Nefino.LI Documentation](https://docs.nefino.li)
+
+## Help
+
+- Open an [issue](https://github.com/your-org/geosync-py/issues) for bug reports or feature requests
+- Contact [Nefino](https://www.nefino.de/kontakt) for account-related inquiries
