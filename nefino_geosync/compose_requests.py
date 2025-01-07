@@ -65,4 +65,4 @@ def compose_single_request(state: str,
                                   scope=scope, 
                                   requests=requests, 
                                   operations=DUMMY_OPERATIONS)
-    return GeoAnalysisInput(name=f'sync_{state}', specs=[spec])
+    return GeoAnalysisInput(name=f'sync_{state}', specs=spec)
