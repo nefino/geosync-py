@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "nefino-geosync"
-version = "0.1.0"
+dynamic = ["version"]
 license = {file = "LICENSE"}
 readme = "README.md"
 description = "Python package to access geographical data from Nefino.LI Geo"
