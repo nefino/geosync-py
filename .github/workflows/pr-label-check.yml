@@ -10,6 +10,8 @@ jobs:
     permissions:
       pull-requests: read
     steps:
+      - name: Checkout repository 📦
+        uses: actions/checkout@v4
       - name: Check for labels 📚
         id: check-labels
         run: |
