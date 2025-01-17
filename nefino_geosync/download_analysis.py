@@ -1,13 +1,14 @@
 import os
 import re
-from shutil import move, rmtree
-from urllib.request import urlretrieve
 import zipfile
+from .config import Config
 from .get_downloadable_analyses import AnalysisResult
 from .journal import Journal
-from .config import Config
-from .storage import get_download_directory 
+from .storage import get_download_directory
 from datetime import datetime
+from shutil import move, rmtree
+from urllib.request import urlretrieve
+
 
 def download_analysis(analysis: AnalysisResult) -> None:
     """Downloads the analysis to the local machine."""
@@ -16,7 +17,7 @@ def download_analysis(analysis: AnalysisResult) -> None:
     download_file = os.path.join(download_dir, "download.zip")
     if not os.path.exists(download_file):
         urlretrieve(analysis.url.replace(" ", "%20"), download_file)
-    with zipfile.ZipFile(download_file, 'r') as zip_ref:
+    with zipfile.ZipFile(download_file, "r") as zip_ref:
         zip_ref.extractall(download_dir)
     zip_root = get_zip_root(download_dir)
     unpack_items(zip_root, analysis.pk, analysis.started_at)
@@ -29,7 +30,10 @@ def get_zip_root(download_dir: str) -> str:
     return download_dir
 
 
-FILE_NAME_PATTERN = re.compile(r"(?P<layer>^.*?)(?P<buffer>__[0-9]+m)?(?P<ext>\..{3,4}$)")
+FILE_NAME_PATTERN = re.compile(
+    r"(?P<layer>^.*?)(?P<buffer>__[0-9]+m)?(?P<ext>\..{3,4}$)"
+)
+
 
 def unpack_items(zip_root: str, pk: str, started_at: datetime) -> None:
     """
@@ -48,12 +52,7 @@ def unpack_items(zip_root: str, pk: str, started_at: datetime) -> None:
         return
 
     state = journal.get_state_for_analysis(pk)
-
-    # Get the analysis subfolder name (first and only directory in zip_root)
-    analysis_subfolder = next(
-        f for f in os.listdir(zip_root) if os.path.isdir(os.path.join(zip_root, f))
-    )
-    base_path = os.path.join(zip_root, analysis_subfolder)
+    base_path = get_base_path(zip_root)
 
     # Iterate through cluster folders inside the analysis subfolder
     for cluster in (
@@ -96,3 +95,30 @@ def unpack_items(zip_root: str, pk: str, started_at: datetime) -> None:
         journal.record_layers_unpacked(layers, state, started_at)
 
     rmtree(zip_root)
+
+
+def get_base_path(zip_root: str) -> str:
+    """
+    Returns the base path for the analysis files in the ZIP structure.
+
+    Handles two different ZIP structures:
+    - Old structure: analysis_summary.xlsx and cluster folders directly in ZIP root
+    - New structure: analysis_summary.xlsx and cluster folders inside a dedicated subfolder
+
+    The presence of analysis_summary.xlsx in the root directory is used to determine
+    which structure we're dealing with.
+
+    Args:
+        zip_root: Path to the root directory of the extracted ZIP file
+
+    Returns:
+        str: Path to the directory containing the cluster folders and analysis_summary.xlsx
+    """
+    if "analysis_summary.xlsx" in os.listdir(zip_root):
+        # Old structure - use zip_root
+        return zip_root
+    # Get the analysis subfolder name (first and only directory in zip_root)
+    analysis_subfolder = next(
+        f for f in os.listdir(zip_root) if os.path.isdir(os.path.join(zip_root, f))
+    )
+    return os.path.join(zip_root, analysis_subfolder)
