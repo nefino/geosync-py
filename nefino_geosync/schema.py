@@ -75,7 +75,7 @@ class GeoAnalysisInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ('name', 'specs')
     name = sgqlc.types.Field(String, graphql_name='name')
-    specs = sgqlc.types.Field(sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null('GeoAnalysisObjectInput'))), graphql_name='specs')
+    specs = sgqlc.types.Field(sgqlc.types.non_null('GeoAnalysisObjectInput'), graphql_name='specs')
 
 
 class GeoAnalysisLayerInput(sgqlc.types.Input):
