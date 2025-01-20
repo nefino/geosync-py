@@ -1200,16 +1200,6 @@
           "inputFields": [
             {
               "defaultValue": null,
-              "description": "Operation to be done on those layers. One of \"union\", \"union_negative\" or \"both\". Default is \"both\".",
-              "name": "type",
-              "type": {
-                "kind": "ENUM",
-                "name": "OperationType",
-                "ofType": null
-              }
-            },
-            {
-              "defaultValue": null,
               "description": "Name of the requested operation",
               "name": "operationName",
               "type": {
@@ -1244,35 +1234,6 @@
           "interfaces": null,
           "kind": "INPUT_OBJECT",
           "name": "GeoAnalysisOperationInput",
-          "possibleTypes": null
-        },
-        {
-          "description": "An enumeration.",
-          "enumValues": [
-            {
-              "deprecationReason": null,
-              "description": null,
-              "isDeprecated": false,
-              "name": "UNION"
-            },
-            {
-              "deprecationReason": null,
-              "description": null,
-              "isDeprecated": false,
-              "name": "UNION_NEGATIVE"
-            },
-            {
-              "deprecationReason": null,
-              "description": null,
-              "isDeprecated": false,
-              "name": "BOTH"
-            }
-          ],
-          "fields": null,
-          "inputFields": null,
-          "interfaces": null,
-          "kind": "ENUM",
-          "name": "OperationType",
           "possibleTypes": null
         },
         {

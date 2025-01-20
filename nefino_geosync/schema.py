@@ -24,11 +24,6 @@ ID = sgqlc.types.ID
 
 Int = sgqlc.types.Int
 
-class OperationType(sgqlc.types.Enum):
-    __schema__ = schema
-    __choices__ = ('BOTH', 'UNION', 'UNION_NEGATIVE')
-
-
 class OutputObjectType(sgqlc.types.Enum):
     __schema__ = schema
     __choices__ = ('GPKG', 'QGIS_AND_GPKG', 'QGIS_PRJ', 'SHP')
@@ -97,8 +92,7 @@ class GeoAnalysisObjectInput(sgqlc.types.Input):
 
 class GeoAnalysisOperationInput(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ('type', 'operation_name', 'input')
-    type = sgqlc.types.Field(OperationType, graphql_name='type')
+    __field_names__ = ('operation_name', 'input')
     operation_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name='operationName')
     input = sgqlc.types.Field(sgqlc.types.non_null(sgqlc.types.list_of(String)), graphql_name='input')
 
