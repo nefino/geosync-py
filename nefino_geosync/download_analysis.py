@@ -15,8 +15,10 @@ def download_analysis(analysis: AnalysisResult) -> None:
     journal = Journal.singleton()
     download_dir = get_download_directory(analysis.pk)
     download_file = os.path.join(download_dir, "download.zip")
-    if not os.path.exists(download_file):
-        urlretrieve(analysis.url.replace(" ", "%20"), download_file)
+    if os.path.exists(download_file):
+        # remove any failed download
+        os.remove(download_file)
+    urlretrieve(analysis.url.replace(" ", "%20"), download_file)
     with zipfile.ZipFile(download_file, "r") as zip_ref:
         zip_ref.extractall(download_dir)
     zip_root = get_zip_root(download_dir)
