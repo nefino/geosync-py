@@ -34,7 +34,7 @@ def compose_complete_requests(
 
     # Log the list of available federal states
     if available_states:
-        print(f'📍 Checking {len(available_states)} available federal states: {", ".join(sorted(available_states))}')
+        print(f'📍 Checking {len(available_states)} available federal state(s): {", ".join(sorted(available_states))}')
     else:
         print('⚠️ No federal states available for your account')
         return {}
