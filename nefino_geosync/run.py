@@ -12,13 +12,14 @@ from .layer_changelog import (
 from .parse_args import parse_args
 from .session_logger import start_session_logging, stop_session_logging
 from .start_analyses import start_analyses
+from datetime import UTC, datetime
 
 
 def main() -> None:
     # Start session-wide logging
     print('Starting Nefino GeoSync...')
     start_session_logging()
-
+    start_time = datetime.now(tz=UTC)
     # Ensure logging stops when the program exits
     atexit.register(stop_session_logging)
 
@@ -44,7 +45,7 @@ def main() -> None:
             download_completed_analyses(client)
 
         # Record successful completion
-        record_successful_geosync_completion()
+        record_successful_geosync_completion(start_time)
 
     except Exception as e:
         print(f'Fatal error: {e}')

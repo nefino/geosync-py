@@ -96,7 +96,7 @@ def unpack_items(zip_root: str, pk: str, started_at: datetime) -> None:
     else:
         layers_to_mark_updated = all_layers_in_analysis
         print(f'Recording {len(layers_to_mark_updated)} unpacked layers as updated for state {state}')
-    journal.record_layers_unpacked(layers_to_mark_updated, state)
+    journal.record_layers_unpacked(layers_to_mark_updated, state, started_at)
     rmtree(zip_root)
 
 

@@ -6,6 +6,7 @@ from .api_client import general_availability_operation, layer_changelog_operatio
 from .config import Config
 from .graphql_errors import check_errors
 from .journal import Journal
+from .schema import LayerChangelogEntry
 from datetime import datetime, timezone
 from nefino_geosync.access_rule_filter import AccessRuleFilter
 from sgqlc.endpoint.http import HTTPEndpoint
@@ -90,56 +91,64 @@ def log_changelog_entries(changelog_result: LayerChangelogResult, accessible_clu
 
     changelog_entries = changelog_result.layer_changelog
     if not changelog_entries:
-        print('✅ No layer changes detected since last run')
-        return
-
-    # Filter entries by accessible clusters if provided
-    filtered_entries = []
-    if accessible_clusters:
-        for entry in changelog_entries:
-            cluster_name = getattr(entry, 'cluster_name', None)
-            if cluster_name and cluster_name in accessible_clusters:
-                filtered_entries.append(entry)
-
-    else:
-        filtered_entries = changelog_entries
-
-    if not filtered_entries:
         print('✅ No layer changes detected for accessible clusters since last run')
         return
 
-    print(f'📋 Found {len(filtered_entries)} layer change(s) for accessible clusters since last run:')
+    # Filter entries by accessible clusters and collect those with relevant changes
+    relevant_entries = []
+    for entry in changelog_entries:
+        # Skip if not in accessible clusters
+        cluster_name = getattr(entry, 'cluster_name', None)
+        if accessible_clusters and (not cluster_name or cluster_name not in accessible_clusters):
+            continue
 
-    for entry in filtered_entries:
-        # Filter for relevant changes (attributes, layer_name, cluster_name changes)
-        relevant_changes = []
-        if hasattr(entry, 'changed_fields') and entry.changed_fields:
-            for field in entry.changed_fields:
-                if field in ['attributes', 'layer_name', 'cluster_name']:
-                    relevant_changes.append(field)
+        # Check for relevant changes
+        relevant_changes = _get_relevant_changes(entry)
+        if relevant_changes:
+            relevant_entries.append((entry, relevant_changes))
 
-        if not relevant_changes:
-            continue  # Skip entries without relevant changes
+    # If no relevant changes found, show success message
+    if not relevant_entries:
+        print('✅ No layer changes detected for accessible clusters since last run')
+        return
 
-        # Log the change
-        layer_name = getattr(entry, 'layer_name', 'Unknown')
-        cluster_name = getattr(entry, 'cluster_name', 'Unknown')
-        action = getattr(entry, 'action', 'Unknown')
-        timestamp = getattr(entry, 'timestamp', 'Unknown')
+    print(f'📋 Found {len(relevant_entries)} layer change(s) for accessible clusters since last run:')
 
-        print(f"  📦 Layer '{layer_name}' (cluster: {cluster_name})")
-        print(f'      Action: {action}')
-        print(f'      Changed fields: {", ".join(relevant_changes)}')
-        print(f'      Timestamp: {timestamp}')
+    for entry, relevant_changes in relevant_entries:
+        _log_entry_details(entry, relevant_changes)
 
-        # If attributes changed, log the attributes
-        if 'attributes' in relevant_changes and hasattr(entry, 'attributes') and entry.attributes:
-            print(f'      New attributes: {", ".join(entry.attributes)}')
-
-        print('')  # Empty line for readability
-
-    # Save to CSV
+    # Save to CSV (use original filtered entries for CSV)
+    filtered_entries = [entry for entry, _ in relevant_entries]
     save_changelog_to_csv(filtered_entries)
+
+
+def _get_relevant_changes(entry: LayerChangelogEntry) -> list:
+    """Extract relevant changes from a changelog entry."""
+    relevant_changes = []
+    if hasattr(entry, 'changed_fields') and entry.changed_fields:
+        for field in entry.changed_fields:
+            if field in ['attributes', 'layer_name', 'cluster_name']:
+                relevant_changes.append(field)
+    return relevant_changes
+
+
+def _log_entry_details(entry: LayerChangelogEntry, relevant_changes: list) -> None:
+    """Log details for a single changelog entry."""
+    layer_name = getattr(entry, 'layer_name', 'Unknown')
+    cluster_name = getattr(entry, 'cluster_name', 'Unknown')
+    action = getattr(entry, 'action', 'Unknown')
+    timestamp = getattr(entry, 'timestamp', 'Unknown')
+
+    print(f"  📦 Layer '{layer_name}' (cluster: {cluster_name})")
+    print(f'      Action: {action}')
+    print(f'      Changed fields: {", ".join(relevant_changes)}')
+    print(f'      Timestamp: {timestamp}')
+
+    # If attributes changed, log the attributes
+    if 'attributes' in relevant_changes and hasattr(entry, 'attributes') and entry.attributes:
+        print(f'      New attributes: {", ".join(entry.attributes)}')
+
+    print('')  # Empty line for readability
 
 
 def save_changelog_to_csv(filtered_entries: list) -> None:
@@ -199,8 +208,8 @@ def save_changelog_to_csv(filtered_entries: list) -> None:
         print(f'⚠️  Failed to save changelog to CSV: {e}')
 
 
-def record_successful_geosync_completion() -> None:
+def record_successful_geosync_completion(start_time: datetime) -> None:
     """Records that a geosync run completed successfully."""
     journal = Journal.singleton()
-    journal.record_successful_geosync_run()
+    journal.record_successful_geosync_run(start_time)
     print('✅ Geosync completed successfully')
