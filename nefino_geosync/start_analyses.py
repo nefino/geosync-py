@@ -41,13 +41,14 @@ def start_analyses(client: HTTPEndpoint) -> AnalysesMutationResult:
     for federal_state_key in analysis_inputs:
         print(f'Starting analysis for {federal_state_key}')
         analyses_op = start_analyses_operation({federal_state_key: analysis_inputs[federal_state_key]})
+        print(f'Started analysis for {federal_state_key}. Waiting for completion...')
         analyses_data = client(analyses_op)
         check_errors(analyses_data, f'Failed to start analysis for {federal_state_key}')
         analyses = analyses_op + analyses_data
 
         # Add the analyses to the journal
         journal.record_analyses_requested(analyses, analysis_inputs)
-        print('Analysis started.')
+        print(f'Analysis for {federal_state_key} finished')
         download_completed_analyses(client)
 
     return analyses
