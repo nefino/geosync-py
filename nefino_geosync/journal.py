@@ -102,9 +102,9 @@ class Journal:
             # we already have None as the field value
             print('No saved last geosync run timestamp found.')
 
-    def record_successful_geosync_run(self) -> None:
+    def record_successful_geosync_run(self, start_time: datetime) -> None:
         """Records the current time as the last successful geosync run."""
-        self.last_geosync_run = datetime.now(timezone.utc)
+        self.last_geosync_run = start_time
         self.save_last_geosync_run()
 
     def record_analyses_requested(self, start_analyses_result, analysis_inputs) -> None:
@@ -126,15 +126,14 @@ class Journal:
                 self.analysis_requested_layers[analysis_metadata.pk] = requested_layers
         self.save_analysis_states()
 
-    def record_layers_unpacked(self, layers: Set[str], state: str) -> None:
+    def record_layers_unpacked(self, layers: Set[str], state: str, started_at: datetime) -> None:
         """Records the layers that have been unpacked, and when they were last updated."""
         print(f'Recording layers {layers} as unpacked for state {state}')
-        current_time = datetime.now(timezone.utc)
 
         for layer in layers:
             if layer not in self.layer_last_updates:
                 self.layer_last_updates[layer] = dict()
-            self.layer_last_updates[layer][state] = current_time
+            self.layer_last_updates[layer][state] = started_at
         self.save_layer_last_updates()
 
     def get_state_for_analysis(self, pk: str) -> str:
