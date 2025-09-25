@@ -6,7 +6,7 @@ from .api_client import get_client
 from .config import Config
 from .download_completed_analyses import download_completed_analyses
 from .layer_changelog import (
-    log_layer_changes_since_last_run,
+    record_layer_changes_since_last_run,
     record_successful_geosync_completion,
 )
 from .parse_args import parse_args
@@ -37,10 +37,10 @@ def main() -> None:
         client = get_client(api_host=os.getenv('NEFINO_API_HOST', default='https://api.nefino.li'))
 
         # Check for layer changes since last run before starting new analyses
-        log_layer_changes_since_last_run(client)
+        changelog_result = record_layer_changes_since_last_run(client)
 
         if not args.resume:
-            start_analyses(client)
+            start_analyses(client, changelog_result)
         else:
             download_completed_analyses(client)
 

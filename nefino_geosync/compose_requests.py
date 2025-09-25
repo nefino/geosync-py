@@ -6,6 +6,7 @@ from .api_client import (
 )
 from .config import Config
 from .journal import Journal
+from .layer_changelog import LayerChangelogResult, layer_has_relevant_changes_in_changelog
 from .parse_args import parse_args
 from .schema import (
     CoordinateInput,
@@ -28,6 +29,7 @@ DUMMY_OPERATIONS = []
 def compose_complete_requests(
     general_availability: GeneralAvailabilityResult,
     local_availability: LocalAvailabilityResult,
+    changelog_result: LayerChangelogResult = None,
 ) -> Dict[str, GeoAnalysisInput]:
     """Use fetched data to build the complete requests for all available layers."""
     available_states = build_states_list(general_availability)
@@ -40,7 +42,8 @@ def compose_complete_requests(
         return {}
 
     requests_as_tuples = [
-        (state, compose_single_request(state, general_availability, local_availability)) for state in available_states
+        (state, compose_single_request(state, general_availability, local_availability, changelog_result))
+        for state in available_states
     ]
 
     # Filter out None requests and notify user about up-to-date states
@@ -55,7 +58,7 @@ def compose_complete_requests(
 
 
 def compose_layer_inputs(
-    layers: list, local_layers: Set[str], state: str, cluster_name: str
+    layers: list, local_layers: Set[str], state: str, cluster_name: str, changelog_result: LayerChangelogResult = None
 ) -> List[GeoAnalysisLayerInput]:
     """Build a list of layer inputs from output lists."""
     args = parse_args()
@@ -68,24 +71,27 @@ def compose_layer_inputs(
         # Check if layer should be processed
         is_available = (not layer.is_regional) or (layer.name in local_layers)
         needs_update = journal.is_newer_than_saved(layer.name, state, layer.last_update)
+        has_relevant_changes = layer_has_relevant_changes_in_changelog(changelog_result, layer.name, cluster_name)
 
-        if is_available and needs_update:
+        if is_available and (needs_update or has_relevant_changes):
             updated_layers.append(layer)
             if args.verbose:
-                print(f'    📄 {layer.name} needs update (last update: {layer.last_update})')
+                reason = 'last update' if needs_update else 'relevant changes'
+                print(f'    📄 {layer.name} needs update ({reason}: {layer.last_update})')
 
     if updated_layers:
         print(f'    ⚡ Found {len(updated_layers)} in cluster {cluster_name} layers to update for {state}')
     else:
         print(f'    ✅ All layers are up-to-date in cluster {cluster_name} for {state}')
 
-    return [GeoAnalysisLayerInput(layer_name=layer['name'], buffer_m=[layer['pre_buffer']]) for layer in updated_layers]
+    return [GeoAnalysisLayerInput(layer_name=layer.name, buffer_m=[layer.pre_buffer]) for layer in updated_layers]
 
 
 def compose_single_request(
     state: str,
     general_availability: GeneralAvailabilityResult,
     local_availability: LocalAvailabilityResult,
+    changelog_result: LayerChangelogResult = None,
 ) -> GeoAnalysisInput:
     """Build a single request for a given state."""
     print(f'🔍 Checking layers for {state}...')
@@ -99,7 +105,7 @@ def compose_single_request(
         state_local_layers.discard(skip_layer)
 
     requests_as_tuples = [
-        (cluster, compose_layer_inputs(cluster.layers, state_local_layers, state, cluster.name))
+        (cluster, compose_layer_inputs(cluster.layers, state_local_layers, state, cluster.name, changelog_result))
         for cluster in general_availability.clusters
         if cluster.has_access and rules.check(state, cluster.name)
     ]

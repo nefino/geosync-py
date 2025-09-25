@@ -23,8 +23,8 @@ def query_layer_changelog(client: HTTPEndpoint, timestamp_start: str = None) -> 
     return changelog_op + changelog_data
 
 
-def log_layer_changes_since_last_run(client: HTTPEndpoint) -> None:
-    """Logs all layer changes since the last successful geosync run."""
+def record_layer_changes_since_last_run(client: HTTPEndpoint) -> LayerChangelogResult:
+    """Logs all layer changes since the last successful geosync run and returns the changelog data."""
     journal = Journal.singleton()
 
     # Get the timestamp of the last successful run
@@ -46,7 +46,7 @@ def log_layer_changes_since_last_run(client: HTTPEndpoint) -> None:
         print(f'Checking for layer changes since last geosync run: {timestamp_start}')
     else:
         print('No previous geosync run found, skipping changelog check')
-        return
+        return None
 
     # Get available clusters to filter changelog results
     try:
@@ -79,8 +79,10 @@ def log_layer_changes_since_last_run(client: HTTPEndpoint) -> None:
     try:
         changelog_result = query_layer_changelog(client, timestamp_start)
         log_changelog_entries(changelog_result, accessible_clusters)
+        return changelog_result
     except Exception as e:
         print(f'Failed to retrieve layer changelog: {e}')
+        return None
 
 
 def log_changelog_entries(changelog_result: LayerChangelogResult, accessible_clusters: set = None) -> None:
@@ -213,3 +215,26 @@ def record_successful_geosync_completion(start_time: datetime) -> None:
     journal = Journal.singleton()
     journal.record_successful_geosync_run(start_time)
     print('✅ Geosync completed successfully')
+
+
+def layer_has_relevant_changes_in_changelog(
+    changelog_result: LayerChangelogResult, layer_name: str, cluster_name: str
+) -> bool:
+    """Check if a layer has relevant changes in the provided changelog data."""
+    if not changelog_result or not hasattr(changelog_result, 'layer_changelog'):
+        return False
+
+    if not changelog_result.layer_changelog:
+        return False
+
+    # Check if this specific layer has relevant changes
+    for entry in changelog_result.layer_changelog:
+        entry_layer_name = getattr(entry, 'layer_name', None)
+        entry_cluster_name = getattr(entry, 'cluster_name', None)
+
+        if entry_layer_name == layer_name and entry_cluster_name == cluster_name:
+            relevant_changes = _get_relevant_changes(entry)
+            if relevant_changes:
+                return True
+
+    return False
