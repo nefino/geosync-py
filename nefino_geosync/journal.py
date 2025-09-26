@@ -118,12 +118,11 @@ class Journal:
             # record where the analysis was started
             self.analysis_states[analysis_metadata.pk] = state
             # record which layers were requested
-            if state in analysis_inputs:
-                requested_layers = set()
-                for request in analysis_inputs[state].specs.requests:
-                    for layer in request.layers:
-                        requested_layers.add(layer.layer_name)
-                self.analysis_requested_layers[analysis_metadata.pk] = requested_layers
+            requested_layers = set()
+            for request in analysis_inputs[state].specs.requests:
+                for layer in request.layers:
+                    requested_layers.add(layer.layer_name)
+            self.analysis_requested_layers[analysis_metadata.pk] = requested_layers
         self.save_analysis_states()
 
     def record_layers_unpacked(self, layers: Set[str], state: str, started_at: datetime) -> None:

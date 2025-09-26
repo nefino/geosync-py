@@ -54,9 +54,6 @@ def unpack_items(zip_root: str, pk: str, started_at: datetime) -> None:
     state = journal.get_state_for_analysis(pk)
     base_path = get_base_path(zip_root)
 
-    # Collect all layer names from the zip file (both with and without files)
-    all_layers_in_analysis = set()
-
     # Iterate through cluster folders inside the analysis subfolder
     for cluster in (
         f for f in os.listdir(base_path) if f != 'analysis_area' and os.path.isdir(os.path.join(base_path, f))
@@ -71,31 +68,26 @@ def unpack_items(zip_root: str, pk: str, started_at: datetime) -> None:
 
                 file_path = os.path.join(cluster_dir, file)
                 match = re.match(FILE_NAME_PATTERN, file)
-                if match:
-                    layer, ext = (match.group('layer'), match.group('ext'))
-                    all_layers_in_analysis.add(layer)
+                layer, ext = (match.group('layer'), match.group('ext'))
 
-                    # Remove any existing files for the same layer
-                    # this is important to avoid confusion if the pre-buffer changes
-                    for matching_file in (f for f in os.listdir(output_dir) if f.startswith(layer)):
-                        output_match = re.match(FILE_NAME_PATTERN, matching_file)
-                        # only remove files that match the layer and extension
-                        # otherwise, only the last extension to be unpacked would survive
-                        # also, we are double-checking the layer name here in case we have
-                        # a layer name which starts with a different layer's name
-                        if output_match.group('layer') == layer and output_match.group('ext') == ext:
-                            os.remove(os.path.join(output_dir, matching_file))
+                # Remove any existing files for the same layer
+                # this is important to avoid confusion if the pre-buffer changes
+                for matching_file in (f for f in os.listdir(output_dir) if f.startswith(layer)):
+                    output_match = re.match(FILE_NAME_PATTERN, matching_file)
+                    # only remove files that match the layer and extension
+                    # otherwise, only the last extension to be unpacked would survive
+                    # also, we are double-checking the layer name here in case we have
+                    # a layer name which starts with a different layer's name
+                    if output_match.group('layer') == layer and output_match.group('ext') == ext:
+                        os.remove(os.path.join(output_dir, matching_file))
 
-                    move(file_path, output_dir)
+                move(file_path, output_dir)
 
-    # If we have requested layers stored in memory, use those
-    # Otherwise, fall back to the layers we found files for
-    if pk in journal.analysis_requested_layers and journal.analysis_requested_layers[pk]:
-        layers_to_mark_updated = journal.analysis_requested_layers[pk]
-        print(f'Recording {len(layers_to_mark_updated)} requested layers as updated for state {state}')
-    else:
-        layers_to_mark_updated = all_layers_in_analysis
-        print(f'Recording {len(layers_to_mark_updated)} unpacked layers as updated for state {state}')
+    # Update the journal to mark layers as updated. We might have empty layers so we do set all requested layers as
+    # updated.
+    layers_to_mark_updated = journal.analysis_requested_layers[pk]
+    print(f'Recording {len(layers_to_mark_updated)} requested layers as updated for state {state}')
+
     journal.record_layers_unpacked(layers_to_mark_updated, state, started_at)
     rmtree(zip_root)
 
