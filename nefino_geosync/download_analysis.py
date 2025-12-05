@@ -85,7 +85,21 @@ def unpack_items(zip_root: str, pk: str, started_at: datetime) -> None:
 
     # Update the journal to mark layers as updated. We might have empty layers so we do set all requested layers as
     # updated.
-    layers_to_mark_updated = journal.analysis_requested_layers[pk]
+    if pk in journal.analysis_requested_layers:
+        layers_to_mark_updated = journal.analysis_requested_layers[pk]
+    else:
+        # Fallback: extract layer names from the ZIP file structure as a safety net
+        print(f'⚠️  Warning: No recorded requested layers for analysis {pk}. Extracting from ZIP structure.')
+        layers_to_mark_updated = set()
+        for cluster in (
+            f for f in os.listdir(base_path) if f != 'analysis_area' and os.path.isdir(os.path.join(base_path, f))
+        ):
+            cluster_dir = os.path.join(base_path, cluster)
+            for file in os.listdir(cluster_dir):
+                match = re.match(FILE_NAME_PATTERN, file)
+                if match:
+                    layers_to_mark_updated.add(match.group('layer'))
+
     print(f'Recording {len(layers_to_mark_updated)} requested layers as updated for state {state}')
 
     journal.record_layers_unpacked(layers_to_mark_updated, state, started_at)
