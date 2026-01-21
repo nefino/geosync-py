@@ -12,6 +12,9 @@ def download_completed_analyses(client: HTTPEndpoint) -> None:
     for analysis in get_downloadable_analyses(client):
         if analysis.pk not in journal.synced_analyses:
             if analysis.pk in journal.analysis_states:
+                if analysis.pk not in journal.analysis_requested_layers:
+                    print(f'⚠️  Warning: Analysis {analysis.pk} found but has no recorded requested layers. Skipping.')
+                    continue
                 download_analysis(analysis)
                 print(f'Downloaded analysis {analysis.pk}')
         elif args.verbose:

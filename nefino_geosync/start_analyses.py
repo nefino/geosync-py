@@ -32,7 +32,8 @@ def start_analyses(client: HTTPEndpoint, changelog_result: LayerChangelogResult 
     local_data = client(local_op)
     check_errors(local_data, 'Failed to fetch regional layer availability')
     local_availability = local_op + local_data
-
+    # Clear previous analysis requested layers
+    journal.clear_analysis_requested_layers()
     # Start the analyses
     analysis_inputs = compose_complete_requests(general_availability, local_availability, changelog_result)
     if len(analysis_inputs) == 0:

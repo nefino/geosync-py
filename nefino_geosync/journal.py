@@ -38,6 +38,7 @@ class Journal:
         self.last_geosync_run: datetime = None
 
         self.load_analysis_states()
+        self.load_analysis_requested_layers()
         self.load_layer_last_updates()
         self.load_synced_analyses()
         self.load_last_geosync_run()
@@ -55,6 +56,24 @@ class Journal:
         except FileNotFoundError:
             # we already have an empty dictionary as the field value
             print('No saved analysis states found.')
+
+    def save_analysis_requested_layers(self) -> None:
+        """Saves the analysis requested layers to a file."""
+        # Convert sets to lists for JSON serialization
+        serializable_data = {pk: list(layers) for pk, layers in self.analysis_requested_layers.items()}
+        with open(os.path.join(get_app_directory(), 'analysis_requested_layers.json'), 'w') as f:
+            json.dump(serializable_data, f)
+
+    def load_analysis_requested_layers(self) -> None:
+        """Loads the analysis requested layers from a file."""
+        try:
+            with open(os.path.join(get_app_directory(), 'analysis_requested_layers.json'), 'r') as f:
+                data = json.load(f)
+                # Convert lists back to sets
+                self.analysis_requested_layers = {pk: set(layers) for pk, layers in data.items()}
+        except FileNotFoundError:
+            # we already have an empty dictionary as the field value
+            print('No saved analysis requested layers found.')
 
     def save_layer_last_updates(self) -> None:
         """Saves the layer last updates to a file."""
@@ -124,6 +143,16 @@ class Journal:
                     requested_layers.add(layer.layer_name)
             self.analysis_requested_layers[analysis_metadata.pk] = requested_layers
         self.save_analysis_states()
+        self.save_analysis_requested_layers()
+
+    def clear_analysis_requested_layers(self) -> None:
+        """Clears all analysis requested layers at the start of a new run."""
+        if self.analysis_requested_layers:
+            print(
+                f"Clearing {len(self.analysis_requested_layers)} old analysis metadata entries from previous runs"
+            )
+            self.analysis_requested_layers.clear()
+            self.save_analysis_requested_layers()
 
     def record_layers_unpacked(self, layers: Set[str], state: str, started_at: datetime) -> None:
         """Records the layers that have been unpacked, and when they were last updated."""
@@ -164,3 +193,7 @@ class Journal:
         """Records that the analysis has been downloaded and unpacked."""
         self.synced_analyses.add(pk)
         self.save_synced_analyses()
+        # Clean up the requested layers for this analysis to prevent unbounded growth
+        if pk in self.analysis_requested_layers:
+            del self.analysis_requested_layers[pk]
+            self.save_analysis_requested_layers()
