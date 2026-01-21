@@ -145,6 +145,15 @@ class Journal:
         self.save_analysis_states()
         self.save_analysis_requested_layers()
 
+    def clear_analysis_requested_layers(self) -> None:
+        """Clears all analysis requested layers at the start of a new run."""
+        if self.analysis_requested_layers:
+            print(
+                f"Clearing {len(self.analysis_requested_layers)} old analysis metadata entries from previous runs"
+            )
+            self.analysis_requested_layers.clear()
+            self.save_analysis_requested_layers()
+
     def record_layers_unpacked(self, layers: Set[str], state: str, started_at: datetime) -> None:
         """Records the layers that have been unpacked, and when they were last updated."""
         print(f'Recording layers {layers} as unpacked for state {state}')
