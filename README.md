@@ -28,6 +28,7 @@ pip install nefino-geosync
 
 ## Requirements
 
+- Python 3.11 or newer (3.11, 3.12 and 3.13 are tested)
 - Active Nefino.LI API contract
 - Sufficient disk space for geodata storage
 

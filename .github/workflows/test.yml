@@ -1,0 +1,30 @@
+name: Test 🧪
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  smoke-test:
+    name: Install & smoke test on Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0 # hatch-vcs needs the tags to derive the version
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install package
+        run: python -m pip install .
+      - name: Import all modules with warnings as errors
+        run: python -W error -c "import nefino_geosync.run, nefino_geosync.api_client, nefino_geosync.compose_requests, nefino_geosync.schema"
+      - name: Run CLI help
+        run: nefino-geosync --help

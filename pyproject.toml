@@ -17,13 +17,13 @@ maintainers = [
     {name = "Chris Stetter", email = "chris.stetter@nefino.de"},
 ]
 
-requires-python = ">=3.8"
+requires-python = ">=3.11"
 dependencies = [
-    "graphql-core==3.2.4",
-    "prompt-toolkit==3.0.36",
-    "questionary==2.0.1",
-    "sgqlc==16.4",
-    "wcwidth==0.2.13",
+    "graphql-core==3.2.13",
+    "prompt-toolkit==3.0.53",
+    "questionary==2.1.1",
+    "sgqlc==18",
+    "wcwidth==0.9.1",
 ]
 
 classifiers = [
@@ -31,6 +31,9 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: GIS",
     "Topic :: Software Development :: Libraries",
     "Operating System :: OS Independent",

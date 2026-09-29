@@ -12,7 +12,7 @@ Boolean = sgqlc.types.Boolean
 
 class CRSType(sgqlc.types.Enum):
     __schema__ = schema
-    __choices__ = ('EPSG_25832', 'EPSG_25833', 'EPSG_3035', 'EPSG_4326')
+    __choices__ = ('EPSG_25832', 'EPSG_25833', 'EPSG_3035', 'EPSG_4326', 'EPSG_5243')
 
 
 class LayerChangeAction(sgqlc.types.Enum):
