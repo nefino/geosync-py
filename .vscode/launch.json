@@ -8,7 +8,7 @@
             "name": "Run script as module",
             "type": "debugpy",
             "request": "launch",
-            "module": "nefino-geosync.run",
+            "module": "nefino_geosync.run",
             "env": {
                 "NEFINO_API_HOST": "http://api.nefino.local"
             },
