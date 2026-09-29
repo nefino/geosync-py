@@ -1350,6 +1350,12 @@
               "description": null,
               "isDeprecated": false,
               "name": "EPSG_3035"
+            },
+            {
+              "deprecationReason": null,
+              "description": null,
+              "isDeprecated": false,
+              "name": "EPSG_5243"
             }
           ],
           "fields": null,
