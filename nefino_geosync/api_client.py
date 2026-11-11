@@ -4,6 +4,7 @@ you can use this client to interact with the API directly.
 """
 
 from .config import Config
+from .graphql_errors import check_errors
 from .schema import GeoAnalysisInput, PlaceTypeGeo, schema
 from sgqlc.endpoint.http import HTTPEndpoint
 from sgqlc.operation import Operation
@@ -37,6 +38,22 @@ def general_availability_operation() -> Operation:
     layers.is_regional()
     layers.pre_buffer()
     return operation
+
+
+def fetch_general_availability(client: HTTPEndpoint) -> Any:
+    """Fetches the general availability of layers and access permissions."""
+    operation = general_availability_operation()
+    data = client(operation)
+    check_errors(data, 'Failed to fetch general layer availability')
+    return operation + data
+
+
+def fetch_local_availability(client: HTTPEndpoint, general_availability: Any) -> Any:
+    """Fetches which regional layers are available in which federal state."""
+    operation = local_availability_operation(general_availability)
+    data = client(operation)
+    check_errors(data, 'Failed to fetch regional layer availability')
+    return operation + data
 
 
 # any is the most specific type we can write for the results from the availability query

@@ -1,9 +1,10 @@
 import os
-import re
 import zipfile
 from .config import Config
 from .get_downloadable_analyses import AnalysisResult
 from .journal import Journal
+from .layer_files import EXTENSIONS, other_format, parse_file_name
+from collections import defaultdict
 from .storage import get_download_directory
 from datetime import datetime
 from shutil import move, rmtree
@@ -32,9 +33,6 @@ def get_zip_root(download_dir: str) -> str:
     return download_dir
 
 
-FILE_NAME_PATTERN = re.compile(r'(?P<layer>^.*?)(?P<buffer>__[0-9]+m)?(?P<ext>\..{3,4}$)')
-
-
 def unpack_items(zip_root: str, pk: str, started_at: datetime) -> None:
     """
     Unpacks the layers from the zip file.
@@ -53,6 +51,17 @@ def unpack_items(zip_root: str, pk: str, started_at: datetime) -> None:
 
     state = journal.get_state_for_analysis(pk)
     base_path = get_base_path(zip_root)
+    output_dir = os.path.join(config.output_path, state)
+    unpacked_layers = {}  # layer -> output format of its unpacked files
+    zip_layers = set()  # all layers with a file in the ZIP, unpacked or not
+
+    # the files that were there before unpacking, by (layer, extension), so the folder is only listed once
+    existing = defaultdict(list)
+    if os.path.isdir(output_dir):
+        for file_name in os.listdir(output_dir):
+            parsed = parse_file_name(file_name)
+            if parsed:
+                existing[parsed].append(file_name)
 
     # Iterate through cluster folders inside the analysis subfolder
     for cluster in (
@@ -61,27 +70,54 @@ def unpack_items(zip_root: str, pk: str, started_at: datetime) -> None:
         cluster_dir = os.path.join(base_path, cluster)
 
         for file in os.listdir(cluster_dir):
-            if journal.is_newer_than_saved(file, state, started_at):
-                output_dir = os.path.join(config.output_path, state)
+            parsed = parse_file_name(file)
+            if parsed is None:
+                print(f'⚠️  Skipping {file} in {cluster}: not a layer file')
+                continue
+            layer, ext = parsed
+            zip_layers.add(layer)
+            if journal.is_newer_than_saved(layer, state, started_at):
                 if not os.path.exists(output_dir):
                     os.makedirs(output_dir)
 
                 file_path = os.path.join(cluster_dir, file)
-                match = re.match(FILE_NAME_PATTERN, file)
-                layer, ext = (match.group('layer'), match.group('ext'))
+                # only the main file decides the format; sidecar files like .prj must not
+                fmt = next((fmt for fmt, extensions in EXTENSIONS.items() if ext == extensions[0]), None)
+                if fmt or layer not in unpacked_layers:
+                    unpacked_layers[layer] = fmt
 
-                # Remove any existing files for the same layer
-                # this is important to avoid confusion if the pre-buffer changes
-                for matching_file in (f for f in os.listdir(output_dir) if f.startswith(layer)):
-                    output_match = re.match(FILE_NAME_PATTERN, matching_file)
-                    # only remove files that match the layer and extension
-                    # otherwise, only the last extension to be unpacked would survive
-                    # also, we are double-checking the layer name here in case we have
-                    # a layer name which starts with a different layer's name
-                    if output_match.group('layer') == layer and output_match.group('ext') == ext:
-                        os.remove(os.path.join(output_dir, matching_file))
+                # Replace the existing files of the same layer and extension (any pre-buffer suffix)
+                # this is important to avoid confusion if the pre-buffer changes; only the same extension
+                # is replaced, otherwise only the last extension to be unpacked would survive
+                for old_file in existing.pop((layer, ext), []):
+                    os.remove(os.path.join(output_dir, old_file))
+                # e.g. the same file in two cluster folders: the first copy was moved after the listing above
+                if os.path.exists(os.path.join(output_dir, file)):
+                    os.remove(os.path.join(output_dir, file))
 
                 move(file_path, output_dir)
+
+    for layer, fmt in sorted(unpacked_layers.items()):
+        if not fmt:
+            continue
+        # Older files of the same layer and format that the new delivery does not have (e.g. a .cpg) belong to the
+        # replaced version and would no longer match it, e.g. a .cpg with another encoding than the new .dbf
+        for ext in EXTENSIONS[fmt]:
+            for old_file in existing.pop((layer, ext), []):
+                os.remove(os.path.join(output_dir, old_file))
+        # Files in the other output format (left over from a format change) are kept; deleting them is up to the user
+        if any((layer, ext) in existing for ext in EXTENSIONS[other_format(fmt)]):
+            print(f'ℹ️  {layer} in {state} also has files in the {other_format(fmt)} format; delete them if not needed')
+
+    # Requested layers without a file in the ZIP are probably empty in this state now. Their older files are kept,
+    # since deleting them cannot be undone, but they are probably outdated.
+    for layer in sorted(journal.analysis_requested_layers.get(pk, set()) - zip_layers):
+        old_files = sorted(f for (old_layer, _), names in existing.items() if old_layer == layer for f in names)
+        if old_files and journal.is_newer_than_saved(layer, state, started_at):
+            print(
+                f'⚠️  No file was delivered for {layer} in {state}, so it probably has no data there anymore. '
+                f'The existing file(s) {", ".join(old_files)} were kept but are probably outdated.'
+            )
 
     # Update the journal to mark layers as updated. We might have empty layers so we do set all requested layers as
     # updated.
@@ -90,15 +126,8 @@ def unpack_items(zip_root: str, pk: str, started_at: datetime) -> None:
     else:
         # Fallback: extract layer names from the ZIP file structure as a safety net
         print(f'⚠️  Warning: No recorded requested layers for analysis {pk}. Extracting from ZIP structure.')
-        layers_to_mark_updated = set()
-        for cluster in (
-            f for f in os.listdir(base_path) if f != 'analysis_area' and os.path.isdir(os.path.join(base_path, f))
-        ):
-            cluster_dir = os.path.join(base_path, cluster)
-            for file in os.listdir(cluster_dir):
-                match = re.match(FILE_NAME_PATTERN, file)
-                if match:
-                    layers_to_mark_updated.add(match.group('layer'))
+        # the files were moved out of the cluster folders above, so use the layers found while unpacking
+        layers_to_mark_updated = set(zip_layers)
 
     print(f'Recording {len(layers_to_mark_updated)} requested layers as updated for state {state}')
 

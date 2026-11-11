@@ -164,6 +164,13 @@ class Journal:
             self.layer_last_updates[layer][state] = started_at
         self.save_layer_last_updates()
 
+    def mark_layers_outdated(self, layers_by_state: Dict[str, Set[str]]) -> None:
+        """Forgets when the given layers were last updated in the given states, so they are requested again."""
+        for state, layers in layers_by_state.items():
+            for layer in layers:
+                self.layer_last_updates.get(layer, {}).pop(state, None)
+        self.save_layer_last_updates()
+
     def get_state_for_analysis(self, pk: str) -> str:
         """Returns the state where the analysis was started."""
         return self.analysis_states[pk]
