@@ -2,13 +2,13 @@
 
 import csv
 import os
-from .api_client import general_availability_operation, layer_changelog_operation
+from .api_client import GeneralAvailabilityResult, layer_changelog_operation
 from .config import Config
 from .graphql_errors import check_errors
 from .journal import Journal
 from .schema import LayerChangelogEntry
 from datetime import datetime, timezone
-from nefino_geosync.access_rule_filter import AccessRuleFilter
+from .access_rule_filter import accessible_clusters
 from sgqlc.endpoint.http import HTTPEndpoint
 from typing import Any
 
@@ -23,7 +23,9 @@ def query_layer_changelog(client: HTTPEndpoint, timestamp_start: str = None) -> 
     return changelog_op + changelog_data
 
 
-def record_layer_changes_since_last_run(client: HTTPEndpoint) -> LayerChangelogResult:
+def record_layer_changes_since_last_run(
+    client: HTTPEndpoint, general_availability: GeneralAvailabilityResult
+) -> LayerChangelogResult:
     """Logs all layer changes since the last successful geosync run and returns the changelog data."""
     journal = Journal.singleton()
 
@@ -50,35 +52,23 @@ def record_layer_changes_since_last_run(client: HTTPEndpoint) -> LayerChangelogR
 
     # Get available clusters to filter changelog results
     try:
-        # First get general availability to determine accessible clusters
-        general_op = general_availability_operation()
-        general_data = client(general_op)
-        check_errors(general_data, 'Failed to fetch general availability for changelog filtering')
-        general_availability = general_op + general_data
-
-        # Use AccessRuleFilter to determine accessible clusters
-        rules = AccessRuleFilter(general_availability.access_rules)
-
+        if general_availability is None:  # fetching it failed while resuming
+            raise ValueError('the layer availability is unknown')
         # Get all places from access rules to check against
-        all_places = set()
-        for rule in general_availability.access_rules:
-            all_places.update(rule.places)
-
-        accessible_clusters = {
-            cluster.name
-            for cluster in general_availability.clusters
-            if cluster.has_access and any(rules.check(place, cluster.name) for place in all_places)
+        all_places = {place for rule in general_availability.access_rules for place in rule.places}
+        accessible_cluster_names = {
+            cluster.name for place in all_places for cluster in accessible_clusters(general_availability, place)
         }
-        print(f'Accessible clusters: {accessible_clusters}')
+        print(f'Accessible clusters: {accessible_cluster_names}')
 
     except Exception as e:
-        print(f'Failed to fetch accessible clusters, showing all changelog entries: {e}')
-        accessible_clusters = set()  # Empty set means show all
+        print(f'Failed to determine accessible clusters, showing all changelog entries: {e}')
+        accessible_cluster_names = set()  # Empty set means show all
 
     # Query the changelog
     try:
         changelog_result = query_layer_changelog(client, timestamp_start)
-        log_changelog_entries(changelog_result, accessible_clusters)
+        log_changelog_entries(changelog_result, accessible_cluster_names)
         return changelog_result
     except Exception as e:
         print(f'Failed to retrieve layer changelog: {e}')
