@@ -21,6 +21,7 @@ requires-python = ">=3.11"
 dependencies = [
     "graphql-core==3.2.13",
     "prompt-toolkit==3.0.53",
+    "pyshp==3.1.8",
     "questionary==2.1.1",
     "sgqlc==18",
     "wcwidth==0.9.1",
@@ -39,6 +40,10 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
+[project.optional-dependencies]
+join = ["shapely==2.2.0"]
+test = ["pytest==9.2.0"]
+
 [project.urls]
 Application = "https://nefino.li"
 API = "https://api.nefino.li"
@@ -52,3 +57,6 @@ source = "vcs"
 
 [tool.hatch.build.targets.wheel]
 packages = ["nefino_geosync"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

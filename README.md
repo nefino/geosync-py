@@ -26,6 +26,24 @@ pip install nefino-geosync
    ```
 4. Set up a scheduled task to run nefino-geosync regularly
 
+## Joining layers into one file
+
+Layers are downloaded per federal state into `<output folder>/<state>/` (e.g. `DE1`, `DE2`, …). Optionally, geosync can also join the files of each layer into one file covering all your federal states:
+
+1. Install the optional dependency (no GDAL needed):
+   ```bash
+   pip install "nefino-geosync[join]"
+   ```
+2. Enable joining in the configuration (`nefino-geosync --configure`), or join for a single run with `nefino-geosync --join`.
+
+The joined files are written to `<output folder>/joined/` with the same file names as the per-state files, which are kept as they are. Features that were cut into several pieces by state boundaries (rows with the same `geom_id`) are fused back into one feature, so polygon and line layers are stored as multi-polygons and multi-lines. Joined files are only rebuilt when one of the per-state files has changed.
+
+Joining works for both output formats. Shapefiles are limited to 2 GB, so very large layers are skipped with a warning when using the SHP format; use GPKG for those.
+
+## Changing the output format or coordinate reference system
+
+If you change the output format or the coordinate reference system with `nefino-geosync --configure`, the next run downloads the affected layers again in the new format or coordinate reference system. Files in the old format are kept, so you can delete them yourself once you no longer need them.
+
 ## Requirements
 
 - Python 3.11 or newer (3.11, 3.12 and 3.13 are tested)

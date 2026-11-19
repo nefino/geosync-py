@@ -1,7 +1,6 @@
-import sys
 from .api_client import (
-    general_availability_operation,
-    local_availability_operation,
+    GeneralAvailabilityResult,
+    LocalAvailabilityResult,
     start_analyses_operation,
 )
 from .compose_requests import compose_complete_requests
@@ -16,22 +15,16 @@ from typing import Any
 AnalysesMutationResult = Any
 
 
-def start_analyses(client: HTTPEndpoint, changelog_result: LayerChangelogResult = None) -> AnalysesMutationResult:
-    """Starts the analyses for all updated data."""
+def start_analyses(
+    client: HTTPEndpoint,
+    changelog_result: LayerChangelogResult,
+    general_availability: GeneralAvailabilityResult,
+    local_availability: LocalAvailabilityResult,
+) -> AnalysesMutationResult:
+    """Starts the analyses for all updated data. Returns None if there was nothing to update."""
     journal = Journal.singleton()
     parse_args()
-    # Get information about our permissions and the general availability of layers
-    general_op = general_availability_operation()
     print('Checking for layers to update...')
-    general_data = client(general_op)
-    check_errors(general_data, 'Failed to fetch general layer availability')
-    general_availability = general_op + general_data
-
-    # Get information about the availability of layers in specific areas
-    local_op = local_availability_operation(general_availability)
-    local_data = client(local_op)
-    check_errors(local_data, 'Failed to fetch regional layer availability')
-    local_availability = local_op + local_data
     # Clear previous analysis requested layers
     journal.clear_analysis_requested_layers()
     # Start the analyses
@@ -39,8 +32,8 @@ def start_analyses(client: HTTPEndpoint, changelog_result: LayerChangelogResult 
     if len(analysis_inputs) == 0:
         # We can only check for layer having been unpacked already.
         # So if we're here, we've already unpacked all latest layers.
-        print('✅ No layers to update. Done.')
-        sys.exit(0)
+        print('✅ No layers to update.')
+        return None
     for federal_state_key in analysis_inputs:
         print(f'Starting analysis for {federal_state_key}')
         analyses_op = start_analyses_operation({federal_state_key: analysis_inputs[federal_state_key]})

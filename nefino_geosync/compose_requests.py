@@ -1,4 +1,4 @@
-from .access_rule_filter import AccessRuleFilter
+from .access_rule_filter import accessible_clusters, is_layer_available, regional_layer_names
 from .api_client import (
     GeneralAvailabilityResult,
     LocalAvailabilityResult,
@@ -63,13 +63,16 @@ def compose_layer_inputs(
     """Build a list of layer inputs from output lists."""
     args = parse_args()
     journal = Journal.singleton()
+    skip_layers = set(Config.singleton().skip_layers)
     updated_layers = []
 
     print(f'  🔍 Checking layers in cluster {cluster_name} for {state}...')
 
     for layer in layers:
+        if layer.name in skip_layers:
+            continue
         # Check if layer should be processed
-        is_available = (not layer.is_regional) or (layer.name in local_layers)
+        is_available = is_layer_available(layer, local_layers)
         needs_update = journal.is_newer_than_saved(layer.name, state, layer.last_update)
         has_relevant_changes = layer_has_relevant_changes_in_changelog(changelog_result, layer.name, cluster_name)
 
@@ -97,17 +100,12 @@ def compose_single_request(
     print(f'🔍 Checking layers for {state}...')
 
     config = Config.singleton()
-    rules = AccessRuleFilter(general_availability.access_rules)
     # specify the data we want to add to the analysis
-    state_local_layers = {layer.name for layer in local_availability[f'regionalLayers_{state}']}
-
-    for skip_layer in config.skip_layers:
-        state_local_layers.discard(skip_layer)
+    state_local_layers = regional_layer_names(local_availability, state)
 
     requests_as_tuples = [
         (cluster, compose_layer_inputs(cluster.layers, state_local_layers, state, cluster.name, changelog_result))
-        for cluster in general_availability.clusters
-        if cluster.has_access and rules.check(state, cluster.name)
+        for cluster in accessible_clusters(general_availability, state)
     ]
 
     requests = [
