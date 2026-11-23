@@ -1,9 +1,13 @@
 import json
+import logging
 import os
 import re
+from .schema import Status
 from .storage import get_app_directory
 from datetime import datetime, timezone
-from typing import Dict, Set
+from typing import Any, Dict, List, Set
+
+log = logging.getLogger(__name__)
 
 
 class Journal:
@@ -55,7 +59,7 @@ class Journal:
                 self.analysis_states = json.load(f)
         except FileNotFoundError:
             # we already have an empty dictionary as the field value
-            print('No saved analysis states found.')
+            log.info('No saved analysis states found.')
 
     def save_analysis_requested_layers(self) -> None:
         """Saves the analysis requested layers to a file."""
@@ -73,7 +77,7 @@ class Journal:
                 self.analysis_requested_layers = {pk: set(layers) for pk, layers in data.items()}
         except FileNotFoundError:
             # we already have an empty dictionary as the field value
-            print('No saved analysis requested layers found.')
+            log.info('No saved analysis requested layers found.')
 
     def save_layer_last_updates(self) -> None:
         """Saves the layer last updates to a file."""
@@ -90,7 +94,7 @@ class Journal:
                         cluster[state] = datetime.fromisoformat(timestamp) if timestamp else None
         except FileNotFoundError:
             # we already have an empty dictionary as the field value
-            print('No saved layer last updates found.')
+            log.info('No saved layer last updates found.')
 
     def save_synced_analyses(self) -> None:
         """Saves the list of processed analyses to a file."""
@@ -104,7 +108,7 @@ class Journal:
                 self.synced_analyses = set(json.load(f))
         except FileNotFoundError:
             # we already have an empty set as the field value
-            print('No saved downloaded analyses found.')
+            log.info('No saved downloaded analyses found.')
 
     def save_last_geosync_run(self) -> None:
         """Saves the timestamp of the last successful geosync run."""
@@ -119,7 +123,7 @@ class Journal:
                 self.last_geosync_run = datetime.fromisoformat(timestamp_str) if timestamp_str else None
         except FileNotFoundError:
             # we already have None as the field value
-            print('No saved last geosync run timestamp found.')
+            log.info('No saved last geosync run timestamp found.')
 
     def record_successful_geosync_run(self, start_time: datetime) -> None:
         """Records the current time as the last successful geosync run."""
@@ -145,18 +149,32 @@ class Journal:
         self.save_analysis_states()
         self.save_analysis_requested_layers()
 
-    def clear_analysis_requested_layers(self) -> None:
-        """Clears all analysis requested layers at the start of a new run."""
-        if self.analysis_requested_layers:
-            print(
-                f"Clearing {len(self.analysis_requested_layers)} old analysis metadata entries from previous runs"
-            )
-            self.analysis_requested_layers.clear()
+    def clear_analysis_requested_layers(self, keep: Set[str] = frozenset()) -> None:
+        """Clears the analysis requested layers of previous runs, except for the analyses in keep."""
+        stale = set(self.analysis_requested_layers) - keep
+        if stale:
+            log.info(f"Clearing {len(stale)} old analysis metadata entries from previous runs")
+            for pk in stale:
+                del self.analysis_requested_layers[pk]
             self.save_analysis_requested_layers()
+
+    def get_unfinished_analyses(self, analyses: List[Any]) -> Dict[str, str]:
+        """Returns {pk: state} of the journal's analyses that are still running, or finished and still to be
+        downloaded."""
+        return {
+            analysis.pk: self.analysis_states[analysis.pk]
+            for analysis in analyses
+            if analysis.pk in self.analysis_states
+            and analysis.pk not in self.synced_analyses
+            and (
+                analysis.status in (Status('PENDING'), Status('RUNNING'))
+                or (analysis.status == Status('SUCCESS') and analysis.pk in self.analysis_requested_layers)
+            )
+        }
 
     def record_layers_unpacked(self, layers: Set[str], state: str, started_at: datetime) -> None:
         """Records the layers that have been unpacked, and when they were last updated."""
-        print(f'Recording layers {layers} as unpacked for state {state}')
+        log.info(f'Recording layers {layers} as unpacked for state {state}')
 
         for layer in layers:
             if layer not in self.layer_last_updates:

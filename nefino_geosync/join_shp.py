@@ -1,11 +1,14 @@
 """Joins the per-state shapefiles of one layer into a single shapefile (using pyshp)."""
 
+import logging
 import os
 import shapefile
 import shutil
 from .layer_files import JoinSkipped, shp_crs_name
 from collections import Counter, defaultdict
 from typing import Dict, List, Tuple
+
+log = logging.getLogger(__name__)
 
 # .shp and .dbf files use 32-bit offsets, so neither may exceed 2 GB.
 MAX_FILE_SIZE = 2**31 - 1
@@ -40,7 +43,7 @@ def merged_fields(readers: List[Tuple[str, shapefile.Reader]]) -> List[Tuple[str
             current[2] = max(current[2], decimal)
     for name in order:
         if occurrences[name] < len(readers):
-            print(f'⚠️  Field {name} only exists in some states; joining all fields.')
+            log.warning(f'⚠️  Field {name} only exists in some states; joining all fields.')
     result = []
     for name in order:
         field_type, size, decimal = fields[name]

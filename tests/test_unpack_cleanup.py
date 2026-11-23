@@ -8,7 +8,7 @@ from shapely.geometry import box
 SQUARE = [{'geom': box(0, 0, 1, 1), 'geom_id': 1}]
 
 
-def test_unpacking_a_new_format_keeps_the_old_format_of_that_layer(app, tmp_path, capsys):
+def test_unpacking_a_new_format_keeps_the_old_format_of_that_layer(app, tmp_path, caplog):
     app.configure(output_format='SHP')
     state_dir = app.state_dir('DE1')
     make_gpkg(os.path.join(state_dir, 'layer_a.gpkg'), SQUARE)
@@ -35,10 +35,10 @@ def test_unpacking_a_new_format_keeps_the_old_format_of_that_layer(app, tmp_path
         'layer_a.shx',
         'layer_b.gpkg',
     ]
-    assert 'layer_a in DE1 also has files in the GPKG format' in capsys.readouterr().out
+    assert 'layer_a in DE1 also has files in the GPKG format' in caplog.text
 
 
-def test_requested_layer_without_file_in_zip_keeps_its_old_files(app, tmp_path, capsys):
+def test_requested_layer_without_file_in_zip_keeps_its_old_files(app, tmp_path, caplog):
     state_dir = app.state_dir('DE1')
     make_gpkg(os.path.join(state_dir, 'now_empty.gpkg'), SQUARE)
     make_gpkg(os.path.join(state_dir, 'not_requested.gpkg'), SQUARE)
@@ -54,11 +54,11 @@ def test_requested_layer_without_file_in_zip_keeps_its_old_files(app, tmp_path, 
     unpack_items(str(zip_root), 'pk2', datetime(2026, 1, 1, tzinfo=timezone.utc))
 
     assert sorted(os.listdir(state_dir)) == ['not_requested.gpkg', 'now_empty.gpkg']
-    assert 'No file was delivered for now_empty in DE1' in capsys.readouterr().out
+    assert 'No file was delivered for now_empty in DE1' in caplog.text
     assert not journal.is_newer_than_saved('now_empty', 'DE1', datetime(2026, 1, 1, tzinfo=timezone.utc))
 
 
-def test_older_analysis_does_not_replace_files_of_a_newer_one(app, tmp_path, capsys):
+def test_older_analysis_does_not_replace_files_of_a_newer_one(app, tmp_path, caplog):
     state_dir = app.state_dir('DE1')
     make_gpkg(os.path.join(state_dir, 'layer_a.gpkg'), SQUARE)
     os.utime(os.path.join(state_dir, 'layer_a.gpkg'), (1_000_000_000, 1_000_000_000))

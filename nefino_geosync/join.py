@@ -5,6 +5,7 @@ fused back into one feature. Needs the optional shapely dependency: pip install 
 """
 
 import json
+import logging
 import os
 from .config import Config
 from .layer_files import (
@@ -14,9 +15,11 @@ from .layer_files import (
     list_layer_files,
     state_dirs,
 )
-from .parse_args import parse_args
+from .options import get_options
 from collections import defaultdict
 from typing import Dict, List, Set, Tuple
+
+log = logging.getLogger(__name__)
 
 # Increase when the join algorithm changes, so existing joined files are rebuilt.
 JOIN_VERSION = 1
@@ -33,14 +36,14 @@ def join_all_layers(accessible: Dict[str, Set[str]]) -> None:
     try:
         from . import fuse
     except ImportError:
-        print('❌ Joining layers needs shapely, which is not installed. Install it with: pip install "nefino-geosync[join]"')
+        log.error('❌ Joining layers needs shapely, which is not installed. Install it with: pip install "nefino-geosync[join]"')
         return
 
     config = Config.singleton()
-    verbose = parse_args().verbose
+    verbose = get_options().verbose
     fmt = str(config.output_format)
     if fmt not in EXTENSIONS:
-        print(f'❌ Joining layers is not supported for the output format {fmt}. Use GPKG or SHP.')
+        log.error(f'❌ Joining layers is not supported for the output format {fmt}. Use GPKG or SHP.')
         return
     joined_dir = os.path.join(config.output_path, JOINED_DIR_NAME)
 
@@ -65,7 +68,7 @@ def join_all_layers(accessible: Dict[str, Set[str]]) -> None:
         if join_state.get(layer) == entry and not is_stale(out_main, sources, fmt):
             up_to_date += 1
             if verbose:
-                print(f'    ✅ {layer} is up to date')
+                log.info(f'    ✅ {layer} is up to date')
             continue
         try:
             if len({os.path.basename(path) for _, path in sources}) > 1:
@@ -73,7 +76,7 @@ def join_all_layers(accessible: Dict[str, Set[str]]) -> None:
                     'the states were delivered with different pre-buffers (see the file names). '
                     'Please contact Nefino support: https://www.nefino.de/kontakt'
                 )
-            print(f'🧩 Joining {layer} from {len(sources)} state(s)...')
+            log.info(f'🧩 Joining {layer} from {len(sources)} state(s)...')
             build_layer(sources, joined_dir, out_name, fmt, fuse)
             join_state[layer] = entry
             save_join_state(joined_dir, join_state)
@@ -84,12 +87,12 @@ def join_all_layers(accessible: Dict[str, Set[str]]) -> None:
             join_state.pop(layer, None)
             save_join_state(joined_dir, join_state)
             kept = ' The existing joined file was kept but does not include the latest changes.'
-            print(f'⚠️  {reason} {layer}: {e}' + (kept if os.path.exists(out_main) else ''))
+            log.warning(f'⚠️  {reason} {layer}: {e}' + (kept if os.path.exists(out_main) else ''))
             skipped += 1
         finally:
             remove_temp_files(joined_dir)
 
-    print(f'🧩 Joined {joined} layer(s), {up_to_date} already up to date, {skipped} skipped. Files are in {joined_dir}')
+    log.info(f'🧩 Joined {joined} layer(s), {up_to_date} already up to date, {skipped} skipped. Files are in {joined_dir}')
 
 
 def collect_layers(output_path: str, fmt: str, accessible: Dict[str, Set[str]]) -> Dict[str, List[Tuple[str, str]]]:
@@ -138,7 +141,7 @@ def remove_temp_files(joined_dir: str) -> None:
             try:
                 os.remove(os.path.join(joined_dir, file_name))
             except OSError as e:  # e.g. locked on Windows; it is removed in a later run
-                print(f'⚠️  Could not remove the temporary file {file_name}: {e}')
+                log.warning(f'⚠️  Could not remove the temporary file {file_name}: {e}')
 
 
 def load_join_state(joined_dir: str) -> dict:

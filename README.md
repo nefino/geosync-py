@@ -44,6 +44,32 @@ Joining works for both output formats. Shapefiles are limited to 2 GB, so very l
 
 If you change the output format or the coordinate reference system with `nefino-geosync --configure`, the next run downloads the affected layers again in the new format or coordinate reference system. Files in the old format are kept, so you can delete them yourself once you no longer need them.
 
+## Running as an automated job
+
+For scheduled jobs that should neither prompt nor block, the sync can be split into two runs, e.g. one in the evening that starts the analyses and one at night that downloads them:
+
+```bash
+nefino-geosync --non-interactive --no-wait            # start analyses, download what is already finished
+nefino-geosync --non-interactive --no-wait --resume   # only download finished analyses
+```
+
+- `--no-wait` does not wait for running analyses; a later run downloads them. It also starts no second analysis for a federal state whose previous analysis has not been downloaded yet.
+- `--non-interactive` never prompts and raises errors instead of printing them. It needs an existing configuration.
+- `--federal-states DE1 DE2` only starts analyses for the given federal states (NUTS codes).
+- `--app-dir PATH` keeps the configuration and the journal in `PATH` instead of the default app directory.
+
+The same is available from Python. Output is written through the standard `logging` module under the `nefino_geosync` logger, so it ends up in the application's logging:
+
+```python
+from nefino_geosync import SyncOptions, sync
+
+result = sync(SyncOptions(interactive=False, wait=False, app_dir='/data/nefino'))
+for analysis in result.failed:
+    print(f'Analysis {analysis.pk} for {analysis.state} failed')
+```
+
+The result lists the analyses this run started and downloaded, and those of the journal that are still pending or have failed.
+
 ## Requirements
 
 - Python 3.11 or newer (3.11, 3.12 and 3.13 are tested)

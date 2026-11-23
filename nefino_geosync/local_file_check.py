@@ -4,6 +4,7 @@ This covers files in a different CRS or output format than configured (e.g. afte
 configuration) and, when joining is enabled, files without the geom_id column.
 """
 
+import logging
 from .config import Config, join_enabled, shapely_available
 from .journal import Journal
 from .layer_files import (
@@ -13,9 +14,11 @@ from .layer_files import (
     other_format,
     state_dirs,
 )
-from .parse_args import parse_args
+from .options import get_options
 from collections import defaultdict
 from typing import Dict, Set
+
+log = logging.getLogger(__name__)
 
 REASONS = {
     'format': 'they are stored in a different output format than configured',
@@ -32,7 +35,7 @@ def mark_outdated_local_files(accessible: Dict[str, Set[str]]) -> None:
     """
     config = Config.singleton()
     journal = Journal.singleton()
-    verbose = parse_args().verbose
+    verbose = get_options().verbose
     fmt = str(config.output_format)
     if fmt not in EXTENSIONS:  # e.g. QGIS project formats, whose files are not checked
         return
@@ -59,7 +62,7 @@ def mark_outdated_local_files(accessible: Dict[str, Set[str]]) -> None:
                 elif check_geom_id and not has_geom_id:
                     outdated['geom_id'][state].add(layer)
             except Exception as e:
-                print(f'⚠️  Could not inspect {path}: {e}')
+                log.warning(f'⚠️  Could not inspect {path}: {e}')
 
     if not outdated:
         return
@@ -67,10 +70,10 @@ def mark_outdated_local_files(accessible: Dict[str, Set[str]]) -> None:
     merged: Dict[str, Set[str]] = defaultdict(set)
     for reason, by_state in outdated.items():
         count = sum(len(layers) for layers in by_state.values())
-        print(f'🔁 {count} layer file(s) in {", ".join(sorted(by_state))} will be downloaded again because {REASONS[reason]}.')
+        log.info(f'🔁 {count} layer file(s) in {", ".join(sorted(by_state))} will be downloaded again because {REASONS[reason]}.')
         for state, layers in by_state.items():
             merged[state] |= layers
             if verbose:
                 for layer in sorted(layers):
-                    print(f'    {state}: {layer}')
+                    log.info(f'    {state}: {layer}')
     journal.mark_layers_outdated(merged)

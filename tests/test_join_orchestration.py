@@ -57,7 +57,7 @@ def test_only_accessible_states_are_joined(app):
     assert sorted(r['geom_id'] for r in read_gpkg(joined_path(app))[1]) == [0, 2]
 
 
-def test_missing_shapely_prints_install_hint(app, monkeypatch, capsys):
+def test_missing_shapely_prints_install_hint(app, monkeypatch, caplog):
     import nefino_geosync
 
     monkeypatch.setitem(sys.modules, 'nefino_geosync.fuse', None)  # simulates shapely not being installed
@@ -66,7 +66,7 @@ def test_missing_shapely_prints_install_hint(app, monkeypatch, capsys):
 
     join.join_all_layers(access('DE1', 'DE2'))
 
-    assert 'pip install "nefino-geosync[join]"' in capsys.readouterr().out
+    assert 'pip install "nefino-geosync[join]"' in caplog.text
     assert not os.path.exists(joined_path(app))
 
 
@@ -95,7 +95,7 @@ def test_format_change_keeps_old_joined_files_and_removes_temp_files(app):
     ]
 
 
-def test_problem_with_one_layer_does_not_stop_the_others(app, capsys):
+def test_problem_with_one_layer_does_not_stop_the_others(app, caplog):
     accessible = access('DE1', 'DE2')
     setup_states(app)
     make_gpkg(os.path.join(app.state_dir('DE1'), 'layer_b.gpkg'), [{'geom': box(0, 0, 1, 1), 'geom_id': 1}], srs=25832)
@@ -103,13 +103,13 @@ def test_problem_with_one_layer_does_not_stop_the_others(app, capsys):
 
     join.join_all_layers(accessible)
 
-    output = capsys.readouterr().out
+    output = caplog.text
     assert 'Skipped joining layer_b' in output
     assert os.path.exists(joined_path(app))
     assert not os.path.exists(joined_path(app, 'layer_b.gpkg'))
 
 
-def test_skipping_a_previously_joined_layer_keeps_its_file_and_retries(app, capsys):
+def test_skipping_a_previously_joined_layer_keeps_its_file_and_retries(app, caplog):
     accessible = access('DE1', 'DE2')
     setup_states(app)
     join.join_all_layers(accessible)
@@ -120,7 +120,7 @@ def test_skipping_a_previously_joined_layer_keeps_its_file_and_retries(app, caps
     make_gpkg(os.path.join(app.state_dir('DE2'), 'layer_a.gpkg'), [{'geom': box(0, 0, 1, 1), 'geom_id': 1}], srs=25833)
     join.join_all_layers(accessible)
 
-    assert 'The existing joined file was kept' in capsys.readouterr().out
+    assert 'The existing joined file was kept' in caplog.text
     assert len(read_gpkg(joined_path(app))[1]) == 2
 
     # tried again in the next run, even though no per-state file changed since

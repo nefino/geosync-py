@@ -2,16 +2,22 @@ import html
 import json
 import re
 import sys
-from .parse_args import parse_args
+from .options import get_options
 from datetime import datetime
 from prompt_toolkit import print_formatted_text
 from prompt_toolkit.formatted_text import HTML
 
 
+class GraphQLError(Exception):
+    """Raised for errors in a GraphQL response when running non-interactively."""
+
+
 def check_errors(data: dict, context: str = None) -> None:
     """Check for errors in a GraphQL response."""
-    args = parse_args()
+    args = get_options()
     if 'errors' in data:
+        if not args.interactive:
+            raise GraphQLError(f'{context or "GraphQL error"}: {json.dumps(data["errors"])}')
         if args.verbose:
             pp('<b>GraphQL operation with errors:</b> ' + html.escape(json.dumps(data, indent=4)))
 
