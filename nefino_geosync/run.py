@@ -1,6 +1,7 @@
 """This is the main entry point of the application."""
 
 import atexit
+import dataclasses
 import logging
 import os
 import sys
@@ -18,10 +19,10 @@ from .options import AnalysisInfo, SyncOptions, SyncResult, set_options
 from .parse_args import parse_args
 from .schema import Status
 from .session_logger import start_session_logging, stop_session_logging
-from .start_analyses import start_analyses
+from .start_analyses import download_unfinished_analyses, start_analyses
 from datetime import UTC, datetime
 from sgqlc.endpoint.http import HTTPEndpoint
-from typing import Optional, Set
+from typing import Optional, Set, Tuple
 
 log = logging.getLogger(__name__)
 
@@ -29,11 +30,19 @@ log = logging.getLogger(__name__)
 def sync(options: Optional[SyncOptions] = None) -> SyncResult:
     """Starts analyses for updated layers and downloads finished ones, as configured by the options.
 
-    This is what the nefino-geosync command runs. Call it to run Nefino GeoSync from Python, e.g. in an
-    automated job with SyncOptions(interactive=False, wait=False): one run starts the analyses, a later run
-    with resume=True downloads them. Logging is left to the caller.
+    Call it to run Nefino GeoSync from Python, e.g. in an automated job with SyncOptions(wait=False): one run
+    starts the analyses, a later run with resume=True downloads them. It always runs non-interactively: it never
+    prompts and raises errors instead of exiting, so it needs an existing configuration. Logging is left to the
+    caller.
     """
-    options = options or SyncOptions()
+    options = dataclasses.replace(options or SyncOptions(), interactive=False)
+    client, known_analyses, synced_analyses, tracked = _run(options)
+    return summarize(client, known_analyses, synced_analyses, tracked)
+
+
+def _run(options: SyncOptions) -> Tuple[HTTPEndpoint, Set[str], Set[str], Set[str]]:
+    """Runs the sync. Returns the client, and the known analyses, synced analyses and analyses with requested
+    layers from before the run."""
     set_options(options)
     # the configuration and the journal are read from the app directory of these options
     Config._instance = None
@@ -54,6 +63,7 @@ def sync(options: Optional[SyncOptions] = None) -> SyncResult:
     journal = Journal.singleton()
     known_analyses = set(journal.analysis_states)
     synced_analyses = set(journal.synced_analyses)
+    tracked = set(journal.analysis_requested_layers)
 
     try:
         general_availability = fetch_general_availability(client)
@@ -67,7 +77,13 @@ def sync(options: Optional[SyncOptions] = None) -> SyncResult:
         general_availability = local_availability = accessible = None
 
     # Check for layer changes since last run before starting new analyses
-    changelog_result = record_layer_changes_since_last_run(client, general_availability)
+    record_layer_changes_since_last_run(client, general_availability)
+
+    if options.resume:
+        download_completed_analyses(client)
+    else:
+        # Download the analyses of earlier runs before the file check, which must see their files
+        download_unfinished_analyses(client)
 
     # Re-download files that do not match the configuration (CRS, output format, missing geom_id).
     # Resuming starts no analyses, so the check is left to the next regular run.
@@ -79,9 +95,7 @@ def sync(options: Optional[SyncOptions] = None) -> SyncResult:
 
     nothing_to_update = False
     if not options.resume:
-        nothing_to_update = start_analyses(client, changelog_result, general_availability, local_availability) is None
-    if options.resume or not options.wait:
-        download_completed_analyses(client)
+        nothing_to_update = start_analyses(client, general_availability, local_availability) is None
 
     if join_enabled() and accessible is not None:
         try:
@@ -95,15 +109,25 @@ def sync(options: Optional[SyncOptions] = None) -> SyncResult:
         # Record successful completion
         record_successful_geosync_completion(start_time)
 
-    return summarize(client, known_analyses, synced_analyses)
+    return client, known_analyses, synced_analyses, tracked
 
 
-def summarize(client: HTTPEndpoint, known_analyses: Set[str], synced_analyses: Set[str]) -> SyncResult:
-    """Summarizes the journal's analyses, given the analyses and synced analyses from before the run."""
+def summarize(
+    client: HTTPEndpoint, known_analyses: Set[str], synced_analyses: Set[str], tracked: Set[str]
+) -> SyncResult:
+    """Summarizes the analyses of this run, given the known analyses, synced analyses and analyses with requested
+    layers from before the run. Analyses of earlier runs whose requested layers were cleared are left out."""
     journal = Journal.singleton()
     result = SyncResult()
     for analysis in fetch_analyses(client):
         if analysis.pk not in journal.analysis_states:
+            continue
+        in_this_run = (
+            analysis.pk in tracked
+            or analysis.pk in journal.analysis_requested_layers
+            or analysis.pk not in known_analyses  # started in this run
+        )
+        if not in_this_run:
             continue
         info = AnalysisInfo(analysis.pk, journal.analysis_states[analysis.pk], analysis.started_at)
         if analysis.pk not in known_analyses:
@@ -142,7 +166,8 @@ def main() -> None:
     package_logger.setLevel(logging.INFO)
 
     try:
-        sync(options)
+        # not sync(): the command line may prompt, and sends no summary request
+        _run(options)
     except Exception as e:
         log.error(f'Fatal error: {e}')
         raise
