@@ -41,11 +41,15 @@ class Journal:
         # Track the last successful geosync run for changelog queries
         self.last_geosync_run: datetime = None
 
+        # Mapping from layer name to the time of its newest relevant changelog entry
+        self.layer_changes: Dict[str, datetime] = dict()
+
         self.load_analysis_states()
         self.load_analysis_requested_layers()
         self.load_layer_last_updates()
         self.load_synced_analyses()
         self.load_last_geosync_run()
+        self.load_layer_changes()
 
     def save_analysis_states(self) -> None:
         """Saves the analysis states to a file."""
@@ -124,6 +128,32 @@ class Journal:
         except FileNotFoundError:
             # we already have None as the field value
             log.info('No saved last geosync run timestamp found.')
+
+    def save_layer_changes(self) -> None:
+        """Saves the times of the newest relevant changelog entry per layer."""
+        with open(os.path.join(get_app_directory(), 'layer_changes.json'), 'w') as f:
+            json.dump(self.layer_changes, f, default=lambda x: x.isoformat())
+
+    def load_layer_changes(self) -> None:
+        """Loads the times of the newest relevant changelog entry per layer."""
+        try:
+            with open(os.path.join(get_app_directory(), 'layer_changes.json'), 'r') as f:
+                self.layer_changes = {layer: datetime.fromisoformat(t) for layer, t in json.load(f).items()}
+        except FileNotFoundError:
+            # no message: journals from before this file existed have none
+            pass
+
+    def record_layer_change(self, layer: str, timestamp: datetime) -> None:
+        """Records a relevant changelog entry of a layer, so the layer is requested again in every state whose
+        files are older."""
+        saved = self.layer_changes.get(layer)
+        if saved is None or _as_aware(saved) < _as_aware(timestamp):
+            self.layer_changes[layer] = timestamp
+            self.save_layer_changes()
+
+    def has_unsynced_change(self, layer: str, state: str) -> bool:
+        """Checks if the layer has a relevant changelog entry that is newer than its files in the state."""
+        return layer in self.layer_changes and self.is_newer_than_saved(layer, state, self.layer_changes[layer])
 
     def record_successful_geosync_run(self, start_time: datetime) -> None:
         """Records the current time as the last successful geosync run."""
@@ -222,3 +252,8 @@ class Journal:
         if pk in self.analysis_requested_layers:
             del self.analysis_requested_layers[pk]
             self.save_analysis_requested_layers()
+
+
+def _as_aware(timestamp: datetime) -> datetime:
+    """Makes a timestamp timezone-aware, assuming UTC if it has no timezone info."""
+    return timestamp.replace(tzinfo=timezone.utc) if timestamp.tzinfo is None else timestamp

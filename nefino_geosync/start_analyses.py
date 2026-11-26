@@ -9,7 +9,6 @@ from .compose_requests import compose_complete_requests
 from .download_completed_analyses import download_completed_analyses
 from .graphql_errors import check_errors
 from .journal import Journal
-from .layer_changelog import LayerChangelogResult
 from .options import get_options
 from sgqlc.endpoint.http import HTTPEndpoint
 from typing import Any
@@ -19,9 +18,15 @@ log = logging.getLogger(__name__)
 AnalysesMutationResult = Any
 
 
+def download_unfinished_analyses(client: HTTPEndpoint) -> None:
+    """Downloads the analyses of earlier runs that are still to be downloaded, waiting for them unless --no-wait,
+    so that their layers are not requested again."""
+    if Journal.singleton().get_unfinished_analyses(fetch_analyses(client)):
+        download_completed_analyses(client)
+
+
 def start_analyses(
     client: HTTPEndpoint,
-    changelog_result: LayerChangelogResult,
     general_availability: GeneralAvailabilityResult,
     local_availability: LocalAvailabilityResult,
 ) -> AnalysesMutationResult:
@@ -33,17 +38,22 @@ def start_analyses(
     unfinished_analyses = journal.get_unfinished_analyses(fetch_analyses(client))
     journal.clear_analysis_requested_layers(keep=set(unfinished_analyses))
     # Start the analyses
-    analysis_inputs = compose_complete_requests(general_availability, local_availability, changelog_result)
+    analysis_inputs = compose_complete_requests(general_availability, local_availability)
+    skipped = False
     if not options.wait:
         # Without waiting, earlier analyses may still be running: do not start a second one for the same state
         for state in sorted(set(unfinished_analyses.values()) & set(analysis_inputs)):
             pks = [pk for pk, pk_state in unfinished_analyses.items() if pk_state == state]
             log.info(f'⏳ Skipping {state}: analyses {", ".join(pks)} have not been downloaded yet')
             del analysis_inputs[state]
+            skipped = True
     if len(analysis_inputs) == 0:
-        # We can only check for layer having been unpacked already.
-        # So if we're here, we've already unpacked all latest layers.
-        log.info('✅ No layers to update.')
+        if skipped:
+            log.info('⏳ No analyses started: earlier analyses are not downloaded yet.')
+        else:
+            # We can only check for layer having been unpacked already.
+            # So if we're here, we've already unpacked all latest layers.
+            log.info('✅ No layers to update.')
         return None
     for federal_state_key in analysis_inputs:
         log.info(f'Starting analysis for {federal_state_key}')

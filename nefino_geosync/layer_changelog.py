@@ -71,11 +71,21 @@ def record_layer_changes_since_last_run(
     # Query the changelog
     try:
         changelog_result = query_layer_changelog(client, timestamp_start)
+        record_relevant_changes(changelog_result)
         log_changelog_entries(changelog_result, accessible_cluster_names)
         return changelog_result
     except Exception as e:
         log.warning(f'Failed to retrieve layer changelog: {e}')
         return None
+
+
+def record_relevant_changes(changelog_result: LayerChangelogResult) -> None:
+    """Records the relevant changes of all entries in the journal, so that each state requests the changed layers
+    until it has newer files, also when this run does not process that state."""
+    journal = Journal.singleton()
+    for entry in getattr(changelog_result, 'layer_changelog', None) or []:
+        if _get_relevant_changes(entry) and entry.timestamp is not None:
+            journal.record_layer_change(entry.layer_name, entry.timestamp)
 
 
 def log_changelog_entries(changelog_result: LayerChangelogResult, accessible_clusters: set = None) -> None:
@@ -209,25 +219,3 @@ def record_successful_geosync_completion(start_time: datetime) -> None:
     journal.record_successful_geosync_run(start_time)
     log.info('✅ Geosync completed successfully')
 
-
-def layer_has_relevant_changes_in_changelog(
-    changelog_result: LayerChangelogResult, layer_name: str, cluster_name: str
-) -> bool:
-    """Check if a layer has relevant changes in the provided changelog data."""
-    if not changelog_result or not hasattr(changelog_result, 'layer_changelog'):
-        return False
-
-    if not changelog_result.layer_changelog:
-        return False
-
-    # Check if this specific layer has relevant changes
-    for entry in changelog_result.layer_changelog:
-        entry_layer_name = getattr(entry, 'layer_name', None)
-        entry_cluster_name = getattr(entry, 'cluster_name', None)
-
-        if entry_layer_name == layer_name and entry_cluster_name == cluster_name:
-            relevant_changes = _get_relevant_changes(entry)
-            if relevant_changes:
-                return True
-
-    return False

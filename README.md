@@ -53,22 +53,46 @@ nefino-geosync --non-interactive --no-wait            # start analyses, download
 nefino-geosync --non-interactive --no-wait --resume   # only download finished analyses
 ```
 
-- `--no-wait` does not wait for running analyses; a later run downloads them. It also starts no second analysis for a federal state whose previous analysis has not been downloaded yet.
-- `--non-interactive` never prompts and raises errors instead of printing them. It needs an existing configuration.
-- `--federal-states DE1 DE2` only starts analyses for the given federal states (NUTS codes).
-- `--app-dir PATH` keeps the configuration and the journal in `PATH` instead of the default app directory.
+- `--no-wait` does not wait for running analyses; a later run downloads them. It also starts no second analysis for a federal state whose previous analysis has not been downloaded yet, i.e. is still `PENDING` or `RUNNING`, or finished and not downloaded. Every run first downloads the finished analyses of earlier runs.
+- `--non-interactive` never prompts and raises errors instead of printing them. It needs an existing configuration (see below).
+- `--federal-states DE1 DE2` only starts analyses for the given federal states (NUTS codes, not case-sensitive). When starting analyses, a code outside your account's analysis areas is an error.
+- `--app-dir PATH` keeps the configuration and the journal in `PATH` instead of the default app directory. It also holds the session logs, the temporary `downloads/` folder and, for a new configuration, the default output folder `newestData`.
+
+The results of an analysis can be downloaded for 7 days after it finished. If a download fails, e.g. because a split job downloaded too late, the run ends with an error and the next run without `--resume` requests its layers again.
+
+Without a terminal, create the configuration file `config.json` in the app directory before the first run:
+
+```json
+{
+    "output_path": "/data/nefino/newestData",
+    "output_format": "GPKG",
+    "crs": "EPSG_25832",
+    "skip_layers": [],
+    "api_key": "<your API key>",
+    "join_layers": false
+}
+```
+
+- `output_format`: `GPKG` or `SHP`
+- `crs`: one of `EPSG_25832`, `EPSG_25833`, `EPSG_3035`, `EPSG_4326`, `EPSG_5243`
+- `skip_layers`: names of layers that are never downloaded
+- `join_layers` (optional, default `false`): join the per-state files of each layer into one file
 
 The same is available from Python. Output is written through the standard `logging` module under the `nefino_geosync` logger, so it ends up in the application's logging:
 
 ```python
 from nefino_geosync import SyncOptions, sync
 
-result = sync(SyncOptions(interactive=False, wait=False, app_dir='/data/nefino'))
+result = sync(SyncOptions(wait=False, app_dir='/data/nefino'))
 for analysis in result.failed:
     print(f'Analysis {analysis.pk} for {analysis.state} failed')
 ```
 
-The result lists the analyses this run started and downloaded, and those of the journal that are still pending or have failed.
+`sync()` always runs non-interactively: it never prompts and raises errors instead of exiting. A `GraphQLError` carries the raw `errors` list of the response in `errors`, e.g. to tell an invalid API key (`extensions.nefino_type == 'AuthTokenInvalid'`) from a server error.
+
+The result lists the analyses this run started and downloaded, and which of the analyses of this run and of earlier runs not downloaded yet are still pending or have failed.
+
+`sync()` uses process-wide state (the options, the configuration and the journal), so do not call it from two threads at the same time. Analyses that stay `PENDING` or `RUNNING` are not timed out by the client.
 
 ## Requirements
 

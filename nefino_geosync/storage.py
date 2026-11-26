@@ -12,7 +12,7 @@ def get_app_directory() -> str:
     system = platform.system()
     
     if get_options().app_dir:
-        base_dir = get_options().app_dir
+        base_dir = os.path.abspath(os.path.expanduser(get_options().app_dir))
     elif system == 'Windows':
         base_dir = os.path.join(os.getenv('APPDATA'), APP_NAME)
     elif system == 'Darwin':  # macOS

@@ -24,7 +24,8 @@ class SyncOptions:
     federal_states: Optional[List[str]] = None
     # Directory for the configuration and the journal; None means the platform's default app directory
     app_dir: Optional[str] = None
-    # If False, never prompt and raise exceptions instead of printing errors and exiting
+    # If False, never prompt and raise exceptions instead of printing errors and exiting. Only the command line
+    # uses it: sync() always runs non-interactively.
     interactive: bool = True
 
 
