@@ -4,7 +4,6 @@ The GeoPackage DDL mirrors what GDAL writes for the files delivered by the Nefin
 (feature table, R-tree index with its triggers, feature count triggers).
 """
 
-import argparse
 import json
 import os
 import pytest
@@ -17,7 +16,7 @@ from nefino_geosync.config import Config
 from nefino_geosync.join_gpkg import register_functions
 from nefino_geosync.journal import Journal
 from nefino_geosync.layer_files import quote
-from nefino_geosync.parse_args import parse_args
+from nefino_geosync.options import SyncOptions, set_options
 
 PRJ = {
     'EPSG_25832': 'PROJCS["ETRS_1989_UTM_Zone_32N",GEOGCS["GCS_ETRS_1989",DATUM["D_ETRS_1989",SPHEROID["GRS_1980",6378137.0,298.257222101]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",500000.0],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",9.0],PARAMETER["Scale_Factor",0.9996],PARAMETER["Latitude_Of_Origin",0.0],UNIT["Meter",1.0]]',
@@ -58,9 +57,7 @@ def app(tmp_path, monkeypatch):
             Journal._instance = None
 
         def args(self, **values):
-            cache = parse_args.__defaults__[0]
-            cache.clear()
-            cache.append(argparse.Namespace(**{'configure': False, 'resume': False, 'join': False, 'verbose': False, **values}))
+            set_options(SyncOptions(**values))
 
         def state_dir(self, state):
             path = os.path.join(str(output), state)
@@ -73,7 +70,7 @@ def app(tmp_path, monkeypatch):
     yield instance
     Config._instance = None
     Journal._instance = None
-    parse_args.__defaults__[0].clear()
+    set_options(SyncOptions())
 
 
 def blob(geom, srs_id):

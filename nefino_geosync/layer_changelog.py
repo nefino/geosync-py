@@ -1,6 +1,7 @@
 """Module for querying and logging layer changelog information."""
 
 import csv
+import logging
 import os
 from .api_client import GeneralAvailabilityResult, layer_changelog_operation
 from .config import Config
@@ -11,6 +12,8 @@ from datetime import datetime, timezone
 from .access_rule_filter import accessible_clusters
 from sgqlc.endpoint.http import HTTPEndpoint
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 LayerChangelogResult = Any
 
@@ -45,9 +48,9 @@ def record_layer_changes_since_last_run(
         if len(timestamp_start) >= 4 and timestamp_start[-4:].isdigit():
             timestamp_start = timestamp_start[:-2] + ':' + timestamp_start[-2:]
 
-        print(f'Checking for layer changes since last geosync run: {timestamp_start}')
+        log.info(f'Checking for layer changes since last geosync run: {timestamp_start}')
     else:
-        print('No previous geosync run found, skipping changelog check')
+        log.info('No previous geosync run found, skipping changelog check')
         return None
 
     # Get available clusters to filter changelog results
@@ -59,31 +62,41 @@ def record_layer_changes_since_last_run(
         accessible_cluster_names = {
             cluster.name for place in all_places for cluster in accessible_clusters(general_availability, place)
         }
-        print(f'Accessible clusters: {accessible_cluster_names}')
+        log.info(f'Accessible clusters: {accessible_cluster_names}')
 
     except Exception as e:
-        print(f'Failed to determine accessible clusters, showing all changelog entries: {e}')
+        log.warning(f'Failed to determine accessible clusters, showing all changelog entries: {e}')
         accessible_cluster_names = set()  # Empty set means show all
 
     # Query the changelog
     try:
         changelog_result = query_layer_changelog(client, timestamp_start)
+        record_relevant_changes(changelog_result)
         log_changelog_entries(changelog_result, accessible_cluster_names)
         return changelog_result
     except Exception as e:
-        print(f'Failed to retrieve layer changelog: {e}')
+        log.warning(f'Failed to retrieve layer changelog: {e}')
         return None
+
+
+def record_relevant_changes(changelog_result: LayerChangelogResult) -> None:
+    """Records the relevant changes of all entries in the journal, so that each state requests the changed layers
+    until it has newer files, also when this run does not process that state."""
+    journal = Journal.singleton()
+    for entry in getattr(changelog_result, 'layer_changelog', None) or []:
+        if _get_relevant_changes(entry) and entry.timestamp is not None:
+            journal.record_layer_change(entry.layer_name, entry.timestamp)
 
 
 def log_changelog_entries(changelog_result: LayerChangelogResult, accessible_clusters: set = None) -> None:
     """Logs changelog entries, focusing on relevant changes and filtering by accessible clusters."""
     if not hasattr(changelog_result, 'layer_changelog'):
-        print('No layer changelog data received')
+        log.info('No layer changelog data received')
         return
 
     changelog_entries = changelog_result.layer_changelog
     if not changelog_entries:
-        print('✅ No layer changes detected for accessible clusters since last run')
+        log.info('✅ No layer changes detected for accessible clusters since last run')
         return
 
     # Filter entries by accessible clusters and collect those with relevant changes
@@ -101,10 +114,10 @@ def log_changelog_entries(changelog_result: LayerChangelogResult, accessible_clu
 
     # If no relevant changes found, show success message
     if not relevant_entries:
-        print('✅ No layer changes detected for accessible clusters since last run')
+        log.info('✅ No layer changes detected for accessible clusters since last run')
         return
 
-    print(f'📋 Found {len(relevant_entries)} layer change(s) for accessible clusters since last run:')
+    log.info(f'📋 Found {len(relevant_entries)} layer change(s) for accessible clusters since last run:')
 
     for entry, relevant_changes in relevant_entries:
         _log_entry_details(entry, relevant_changes)
@@ -131,16 +144,16 @@ def _log_entry_details(entry: LayerChangelogEntry, relevant_changes: list) -> No
     action = getattr(entry, 'action', 'Unknown')
     timestamp = getattr(entry, 'timestamp', 'Unknown')
 
-    print(f"  📦 Layer '{layer_name}' (cluster: {cluster_name})")
-    print(f'      Action: {action}')
-    print(f'      Changed fields: {", ".join(relevant_changes)}')
-    print(f'      Timestamp: {timestamp}')
+    log.info(f"  📦 Layer '{layer_name}' (cluster: {cluster_name})")
+    log.info(f'      Action: {action}')
+    log.info(f'      Changed fields: {", ".join(relevant_changes)}')
+    log.info(f'      Timestamp: {timestamp}')
 
     # If attributes changed, log the attributes
     if 'attributes' in relevant_changes and hasattr(entry, 'attributes') and entry.attributes:
-        print(f'      New attributes: {", ".join(entry.attributes)}')
+        log.info(f'      New attributes: {", ".join(entry.attributes)}')
 
-    print('')  # Empty line for readability
+    log.info('')  # Empty line for readability
 
 
 def save_changelog_to_csv(filtered_entries: list) -> None:
@@ -195,36 +208,14 @@ def save_changelog_to_csv(filtered_entries: list) -> None:
                     }
                 )
 
-        print(f'📊 Changelog saved to CSV: {csv_path}')
+        log.info(f'📊 Changelog saved to CSV: {csv_path}')
     except Exception as e:
-        print(f'⚠️  Failed to save changelog to CSV: {e}')
+        log.warning(f'⚠️  Failed to save changelog to CSV: {e}')
 
 
 def record_successful_geosync_completion(start_time: datetime) -> None:
     """Records that a geosync run completed successfully."""
     journal = Journal.singleton()
     journal.record_successful_geosync_run(start_time)
-    print('✅ Geosync completed successfully')
+    log.info('✅ Geosync completed successfully')
 
-
-def layer_has_relevant_changes_in_changelog(
-    changelog_result: LayerChangelogResult, layer_name: str, cluster_name: str
-) -> bool:
-    """Check if a layer has relevant changes in the provided changelog data."""
-    if not changelog_result or not hasattr(changelog_result, 'layer_changelog'):
-        return False
-
-    if not changelog_result.layer_changelog:
-        return False
-
-    # Check if this specific layer has relevant changes
-    for entry in changelog_result.layer_changelog:
-        entry_layer_name = getattr(entry, 'layer_name', None)
-        entry_cluster_name = getattr(entry, 'cluster_name', None)
-
-        if entry_layer_name == layer_name and entry_cluster_name == cluster_name:
-            relevant_changes = _get_relevant_changes(entry)
-            if relevant_changes:
-                return True
-
-    return False

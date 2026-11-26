@@ -2,16 +2,34 @@ import html
 import json
 import re
 import sys
-from .parse_args import parse_args
+from .options import get_options
 from datetime import datetime
 from prompt_toolkit import print_formatted_text
 from prompt_toolkit.formatted_text import HTML
 
 
+class GraphQLError(Exception):
+    """Raised for errors in a GraphQL response when running non-interactively."""
+
+    def __init__(self, message: str, errors: list = None) -> None:
+        super().__init__(message)
+        # the raw errors of the response, e.g. to tell an invalid API key
+        # (extensions.nefino_type == 'AuthTokenInvalid') from a server error. None after unpickling: the errors
+        # may hold an HTTPError, so they are not passed on.
+        self.errors = errors
+
+    def __reduce__(self):
+        return (type(self), (self.args[0],))
+
+
 def check_errors(data: dict, context: str = None) -> None:
     """Check for errors in a GraphQL response."""
-    args = parse_args()
+    args = get_options()
     if 'errors' in data:
+        if not args.interactive:
+            raise GraphQLError(
+                f'{context or "GraphQL error"}: {json.dumps(data["errors"], default=str)}', data['errors']
+            )
         if args.verbose:
             pp('<b>GraphQL operation with errors:</b> ' + html.escape(json.dumps(data, indent=4)))
 

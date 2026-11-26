@@ -1,3 +1,4 @@
+import logging
 from .access_rule_filter import accessible_clusters, is_layer_available, regional_layer_names
 from .api_client import (
     GeneralAvailabilityResult,
@@ -6,8 +7,7 @@ from .api_client import (
 )
 from .config import Config
 from .journal import Journal
-from .layer_changelog import LayerChangelogResult, layer_has_relevant_changes_in_changelog
-from .parse_args import parse_args
+from .options import get_options
 from .schema import (
     CoordinateInput,
     GeoAnalysisInput,
@@ -20,6 +20,8 @@ from .schema import (
 )
 from typing import Dict, List, Set
 
+log = logging.getLogger(__name__)
+
 # Place analyses require a dummy coordinate. It will be ignored in calculations.
 DUMMY_COORDINATE = CoordinateInput(lon=9.0, lat=52.0)
 # The API requires input of combining operations, even if they are not used.
@@ -29,20 +31,32 @@ DUMMY_OPERATIONS = []
 def compose_complete_requests(
     general_availability: GeneralAvailabilityResult,
     local_availability: LocalAvailabilityResult,
-    changelog_result: LayerChangelogResult = None,
 ) -> Dict[str, GeoAnalysisInput]:
     """Use fetched data to build the complete requests for all available layers."""
+    federal_states = get_options().federal_states
     available_states = build_states_list(general_availability)
+    if federal_states is not None:
+        selected = {state.upper() for state in federal_states}
+        unknown = selected - set(available_states)
+        if unknown:
+            raise ValueError(
+                f'Unknown or unavailable federal states: {", ".join(sorted(unknown))}. '
+                f'Available: {", ".join(sorted(available_states)) or "none"}'
+            )
+        available_states = [state for state in available_states if state in selected]
 
     # Log the list of available federal states
     if available_states:
-        print(f'📍 Checking {len(available_states)} available federal state(s): {", ".join(sorted(available_states))}')
+        log.info(f'📍 Checking {len(available_states)} available federal state(s): {", ".join(sorted(available_states))}')
     else:
-        print('⚠️ No federal states available for your account')
+        if federal_states == []:
+            log.warning('⚠️ No federal states selected')
+        else:
+            log.warning('⚠️ No federal states available for your account')
         return {}
 
     requests_as_tuples = [
-        (state, compose_single_request(state, general_availability, local_availability, changelog_result))
+        (state, compose_single_request(state, general_availability, local_availability))
         for state in available_states
     ]
 
@@ -52,21 +66,21 @@ def compose_complete_requests(
         if request is not None:
             result[state] = request
         else:
-            print(f'✅ {state} is up-to-date')
+            log.info(f'✅ {state} is up-to-date')
 
     return result
 
 
 def compose_layer_inputs(
-    layers: list, local_layers: Set[str], state: str, cluster_name: str, changelog_result: LayerChangelogResult = None
+    layers: list, local_layers: Set[str], state: str, cluster_name: str
 ) -> List[GeoAnalysisLayerInput]:
     """Build a list of layer inputs from output lists."""
-    args = parse_args()
+    args = get_options()
     journal = Journal.singleton()
     skip_layers = set(Config.singleton().skip_layers)
     updated_layers = []
 
-    print(f'  🔍 Checking layers in cluster {cluster_name} for {state}...')
+    log.info(f'  🔍 Checking layers in cluster {cluster_name} for {state}...')
 
     for layer in layers:
         if layer.name in skip_layers:
@@ -74,18 +88,18 @@ def compose_layer_inputs(
         # Check if layer should be processed
         is_available = is_layer_available(layer, local_layers)
         needs_update = journal.is_newer_than_saved(layer.name, state, layer.last_update)
-        has_relevant_changes = layer_has_relevant_changes_in_changelog(changelog_result, layer.name, cluster_name)
+        has_relevant_changes = journal.has_unsynced_change(layer.name, state)
 
         if is_available and (needs_update or has_relevant_changes):
             updated_layers.append(layer)
             if args.verbose:
                 reason = 'last update' if needs_update else 'relevant changes'
-                print(f'    📄 {layer.name} needs update ({reason}: {layer.last_update})')
+                log.info(f'    📄 {layer.name} needs update ({reason}: {layer.last_update})')
 
     if updated_layers:
-        print(f'    ⚡ Found {len(updated_layers)} in cluster {cluster_name} layers to update for {state}')
+        log.info(f'    ⚡ Found {len(updated_layers)} in cluster {cluster_name} layers to update for {state}')
     else:
-        print(f'    ✅ All layers are up-to-date in cluster {cluster_name} for {state}')
+        log.info(f'    ✅ All layers are up-to-date in cluster {cluster_name} for {state}')
 
     return [GeoAnalysisLayerInput(layer_name=layer.name, buffer_m=[layer.pre_buffer]) for layer in updated_layers]
 
@@ -94,17 +108,16 @@ def compose_single_request(
     state: str,
     general_availability: GeneralAvailabilityResult,
     local_availability: LocalAvailabilityResult,
-    changelog_result: LayerChangelogResult = None,
 ) -> GeoAnalysisInput:
     """Build a single request for a given state."""
-    print(f'🔍 Checking layers for {state}...')
+    log.info(f'🔍 Checking layers for {state}...')
 
     config = Config.singleton()
     # specify the data we want to add to the analysis
     state_local_layers = regional_layer_names(local_availability, state)
 
     requests_as_tuples = [
-        (cluster, compose_layer_inputs(cluster.layers, state_local_layers, state, cluster.name, changelog_result))
+        (cluster, compose_layer_inputs(cluster.layers, state_local_layers, state, cluster.name))
         for cluster in accessible_clusters(general_availability, state)
     ]
 

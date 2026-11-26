@@ -1,11 +1,14 @@
 import json
+import logging
 import os
 from typing import List
 
 import questionary
-from .parse_args import parse_args
+from .options import get_options
 from .schema import CRSType, OutputObjectType
 from .storage import get_app_directory
+
+log = logging.getLogger(__name__)
 
 
 class Config:
@@ -30,6 +33,11 @@ class Config:
             raise Exception("Config is a singleton class. Use Config.singleton() to get the instance.")
         self.already_prompted = False
         if not os.path.exists(self._config_file_path):
+            if not get_options().interactive:
+                raise FileNotFoundError(
+                    f'No configuration found at {self._config_file_path}. Run nefino-geosync once interactively, '
+                    'or create the file, before running non-interactively.'
+                )
             self.run_config_prompts(missing_config=True)
         else:
             with open(self._config_file_path, "r") as f:
@@ -77,7 +85,7 @@ class Config:
             instruction="Joined files are written to the 'joined' folder. Requires: pip install \"nefino-geosync[join]\"",
             default=False if missing_config else self.join_layers).ask()
         if self.join_layers and not shapely_available():
-            print('⚠️  Joining needs shapely. Please install it with: pip install "nefino-geosync[join]"')
+            log.warning('⚠️  Joining needs shapely. Please install it with: pip install "nefino-geosync[join]"')
         self.api_key = questionary.text(
             "Enter your API key:",
             default="" if missing_config else self.api_key).ask()
@@ -101,4 +109,4 @@ def shapely_available() -> bool:
 
 def join_enabled() -> bool:
     """Returns whether layers should be joined in this run (config setting or --join flag)."""
-    return Config.singleton().join_layers or parse_args().join
+    return Config.singleton().join_layers or get_options().join

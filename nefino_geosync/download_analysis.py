@@ -1,3 +1,4 @@
+import logging
 import os
 import zipfile
 from .config import Config
@@ -9,6 +10,8 @@ from .storage import get_download_directory
 from datetime import datetime
 from shutil import move, rmtree
 from urllib.request import urlretrieve
+
+log = logging.getLogger(__name__)
 
 
 def download_analysis(analysis: AnalysisResult) -> None:
@@ -46,7 +49,7 @@ def unpack_items(zip_root: str, pk: str, started_at: datetime) -> None:
     config = Config.singleton()
 
     if pk not in journal.analysis_states:
-        print(f'Analysis {pk} not found in journal; skipping download')
+        log.info(f'Analysis {pk} not found in journal; skipping download')
         return
 
     state = journal.get_state_for_analysis(pk)
@@ -72,7 +75,7 @@ def unpack_items(zip_root: str, pk: str, started_at: datetime) -> None:
         for file in os.listdir(cluster_dir):
             parsed = parse_file_name(file)
             if parsed is None:
-                print(f'⚠️  Skipping {file} in {cluster}: not a layer file')
+                log.warning(f'⚠️  Skipping {file} in {cluster}: not a layer file')
                 continue
             layer, ext = parsed
             zip_layers.add(layer)
@@ -107,14 +110,14 @@ def unpack_items(zip_root: str, pk: str, started_at: datetime) -> None:
                 os.remove(os.path.join(output_dir, old_file))
         # Files in the other output format (left over from a format change) are kept; deleting them is up to the user
         if any((layer, ext) in existing for ext in EXTENSIONS[other_format(fmt)]):
-            print(f'ℹ️  {layer} in {state} also has files in the {other_format(fmt)} format; delete them if not needed')
+            log.info(f'ℹ️  {layer} in {state} also has files in the {other_format(fmt)} format; delete them if not needed')
 
     # Requested layers without a file in the ZIP are probably empty in this state now. Their older files are kept,
     # since deleting them cannot be undone, but they are probably outdated.
     for layer in sorted(journal.analysis_requested_layers.get(pk, set()) - zip_layers):
         old_files = sorted(f for (old_layer, _), names in existing.items() if old_layer == layer for f in names)
         if old_files and journal.is_newer_than_saved(layer, state, started_at):
-            print(
+            log.warning(
                 f'⚠️  No file was delivered for {layer} in {state}, so it probably has no data there anymore. '
                 f'The existing file(s) {", ".join(old_files)} were kept but are probably outdated.'
             )
@@ -125,11 +128,11 @@ def unpack_items(zip_root: str, pk: str, started_at: datetime) -> None:
         layers_to_mark_updated = journal.analysis_requested_layers[pk]
     else:
         # Fallback: extract layer names from the ZIP file structure as a safety net
-        print(f'⚠️  Warning: No recorded requested layers for analysis {pk}. Extracting from ZIP structure.')
+        log.warning(f'⚠️  Warning: No recorded requested layers for analysis {pk}. Extracting from ZIP structure.')
         # the files were moved out of the cluster folders above, so use the layers found while unpacking
         layers_to_mark_updated = set(zip_layers)
 
-    print(f'Recording {len(layers_to_mark_updated)} requested layers as updated for state {state}')
+    log.info(f'Recording {len(layers_to_mark_updated)} requested layers as updated for state {state}')
 
     journal.record_layers_unpacked(layers_to_mark_updated, state, started_at)
     rmtree(zip_root)

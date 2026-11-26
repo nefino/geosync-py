@@ -73,7 +73,7 @@ def test_lines_are_merged(tmp_path):
     assert rows[0]['geom'].length == pytest.approx(10)
 
 
-def test_differing_columns_are_joined_with_a_warning(tmp_path, capsys):
+def test_differing_columns_are_joined_with_a_warning(tmp_path, caplog):
     de1 = make_gpkg(tmp_path / 'de1.gpkg', [{'geom': box(0, 0, 1, 1), 'geom_id': 1, 'name': 'a'}])
     de2 = make_gpkg(
         tmp_path / 'de2.gpkg',
@@ -86,7 +86,7 @@ def test_differing_columns_are_joined_with_a_warning(tmp_path, capsys):
 
     _, rows = read_gpkg(out)
     assert [(r['geom_id'], r['extra']) for r in rows] == [(1, None), (2, 7)]
-    assert 'different columns' in capsys.readouterr().out
+    assert 'different columns' in caplog.text
 
 
 def test_different_crs_is_skipped(tmp_path):

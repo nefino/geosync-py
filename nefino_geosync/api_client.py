@@ -113,6 +113,14 @@ def get_analyses_operation() -> Operation:
     return operation
 
 
+def fetch_analyses(client: HTTPEndpoint) -> List[Any]:
+    """Fetches the metadata of all analyses of the account."""
+    operation = get_analyses_operation()
+    data = client(operation)
+    check_errors(data, 'Failed to fetch analysis status')
+    return (operation + data).analysis_metadata
+
+
 def layer_changelog_operation(timestamp_start: str = None) -> Operation:
     """Builds an operation to get layer changelog entries."""
     operation = Operation(schema.Query)

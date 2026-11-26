@@ -2,6 +2,7 @@
 
 import os
 import platform
+from .options import get_options
 
 APP_NAME='nefino-geosync'
 
@@ -10,7 +11,9 @@ def get_app_directory() -> str:
     Creates it if it doesn't exist."""
     system = platform.system()
     
-    if system == 'Windows':
+    if get_options().app_dir:
+        base_dir = os.path.abspath(os.path.expanduser(get_options().app_dir))
+    elif system == 'Windows':
         base_dir = os.path.join(os.getenv('APPDATA'), APP_NAME)
     elif system == 'Darwin':  # macOS
         base_dir = os.path.join(os.path.expanduser('~'), 'Library', 'Application Support', APP_NAME)

@@ -60,3 +60,4 @@ packages = ["nefino_geosync"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+log_level = "INFO"

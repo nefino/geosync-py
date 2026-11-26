@@ -4,6 +4,7 @@ Appending rows only needs the standard library (sqlite3). Fusing the pieces of e
 the fuse module (shapely).
 """
 
+import logging
 import re
 import shutil
 import sqlite3
@@ -11,6 +12,8 @@ import struct
 from .layer_files import GpkgInfo, JoinSkipped, gpkg_crs_name, gpkg_info, quote
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
+
+log = logging.getLogger(__name__)
 
 ENVELOPE_SIZES = {0: 0, 1: 32, 2: 48, 3: 48, 4: 64}
 SINGLE_TO_MULTI = {1: 4, 2: 5, 3: 6}  # Point -> MultiPoint, LineString -> MultiLineString, Polygon -> MultiPolygon
@@ -85,7 +88,7 @@ def append_sources(con: sqlite3.Connection, first: GpkgInfo, sources: List[Tuple
             missing = [c for c in source_columns if c not in target_columns]
             if missing or set(source_columns) != set(target_columns):
                 if not warned:
-                    print(f'⚠️  The states have different columns in {first.table}; joining all columns.')
+                    log.warning(f'⚠️  The states have different columns in {first.table}; joining all columns.')
                     warned = True
                 for column in missing:
                     con.execute(f'ALTER TABLE {table} ADD COLUMN {quote(column)} {source_columns[column]}')
